@@ -1,0 +1,24 @@
+SRC = ../APP/src/
+INC = ../APP/inc/
+INCS = -I../APP/inc
+OBJS = 	main.o \
+		uart_api.o \
+		ProtocolEvent.o \
+		MyPublicFunction.o \
+		MyClientSocket.o \
+		MyServerSocket.o \
+		MyCustMadeJson.o \
+
+HOST_CC = gcc
+TARGET_CC = arm-linux-gcc
+CC = ${TARGET_CC}
+
+Smoke_net_mid:${OBJS}
+	${CC} -o ../OUT/Smoke_net_mid $^ -lpthread
+		
+%.o:${SRC}%.c
+	${CC} -c ${INCS} $< -o $@	
+
+.PHONY : clean
+clean :
+	-rm -f ${OBJS} ../OUT/Smoke_net_mid

@@ -1,0 +1,9 @@
+#!/bin/ash
+
+arg=$1
+
+echo "start download fw"
+
+wget $arg
+
+echo "end download fw"

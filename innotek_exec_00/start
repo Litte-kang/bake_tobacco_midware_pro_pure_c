@@ -1,0 +1,39 @@
+#!/bin/ash
+
+echo "{tmp.log}</br>" > /tmp/tmp.log
+
+new_ver=`cat ./fws/fw_100/100.version`
+cur_ver=`cat ./conf/version`
+
+new_ver=`echo $new_ver | awk '{print $1}'`
+
+echo $new_ver
+echo $cur_ver
+
+chmod 777 ./bin/Bake_Tobacco_Monitor
+chmod 777 ./bin/download_fw
+
+if [ "$new_ver" -gt "$cur_ver" ]
+then
+	echo "update mid fw"
+	
+	cd ./fws/fw_100
+	
+	cp 100.$new_ver.fw 100.tar
+	tar -xvf 100.tar
+	rm 100.tar
+	
+	cd ./100
+	/bin/sh update	
+	
+	cd ../../../
+	
+	echo $new_ver > ./conf/version
+fi
+
+/bin/sh kill_processes
+
+sleep 1
+
+echo "start monitor"
+./bin/Bake_Tobacco_Monitor &

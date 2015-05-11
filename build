@@ -1,0 +1,32 @@
+#!/bin/bash
+
+arg=$1
+
+export PATH=/usr/local/mips/crosstool-4.6/bin:$PATH
+
+while true
+do
+
+if [ "$arg" == '' ]
+then
+	echo "arg is not empty"
+	break
+fi
+
+if [ "$arg" == 'make' ]
+then
+	cd bake_tobacco_monitor/makefile
+	make
+	cp ../out/Bake_Tobacco_Monitor ../../innotek_exec_00/bin/
+	break
+fi
+
+if [ "$arg" == 'clean' ]
+then
+	cd bake_tobacco_monitor/makefile
+	make clean
+	rm -rf ../../innotek_exec_00/bin/Bake_Tobacco_Monitor
+	break
+fi
+
+done
