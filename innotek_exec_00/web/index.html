@@ -1,0 +1,304 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Language" content="zh-cn">
+<META HTTP-EQUIV="Cache-Control" CONTENT="no-store, must-revalidate"> 
+<title>配置中间件</title>
+<link rel="icon" href="favicon.ico" type="image/x-icon"/>
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
+<style type="text/css">
+<!--
+.STYLE1 {
+	color: #FF0000;
+	font-weight: bold;
+}
+.MYBUTTON {
+	color: #000000;
+	text-align: center;
+	padding-top: 3px;
+	padding-right: 5px;
+	padding-left: 5px;
+	font-family: "Times New Roman", Times, serif;
+	font-size: 14px;
+}
+.TMPLOG {
+	font-family: "Times New Roman", Times, serif;
+	font-size: 19px;
+}
+.LABFONT {
+	font-family: "Times New Roman", Times, serif;
+	font-size: 18px;
+}
+-->
+</style>
+</head>
+
+<body>
+</br></br></br></br>
+
+<table width="591" height="108" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
+<tr>
+  <td width="108" height="30" rowspan="2" align="left" valign="middle" class="LABFONT">中间件ID</td>
+  <td height="30" align="left"><input name="midId_ch" id="midId_ch" type="text"></td>
+  </tr>
+<tr>
+  <td height="30" align="left">
+    <input name="midId" type="text" id="midId" value="0000000000" maxlength="10">
+	&nbsp;
+    <input name="midIdSubmitButton" type="button" class="MYBUTTON" id="midIdSubmitButton" onClick="buttonEvt(this)" value="提交" /> </td>
+</tr>
+<tr>
+  <td height="30" colspan="2" align="left" valign="middle"><span class="STYLE1">注：修改中间件ID后需重启后才能生效</span></td>
+</tr>
+</table>
+</br>
+<table width="591" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
+  <tr>
+    <td width="108" height="30" align="left" valign="middle"><span class="LABFONT">地址通道</span></td>
+    <td height="29" align="left"><input name="aisle" type="text" id="aisle" value="00" maxlength="2" readonly="true">
+      &nbsp;</td>
+  </tr>
+  <tr>
+    <td width="108" height="30" align="left" valign="middle" class="LABFONT">自控仪地址</td>
+    <td height="30"><input name="address" type="text" id="address" maxlength="5" >
+    &nbsp;
+    <input name="addButton" type="button" class="MYBUTTON" id="addButton" onClick="buttonEvt(this)" value="添加">
+&nbsp;      <input name="delButton" id="delButton" type="button" onClick="buttonEvt(this)" class="MYBUTTON" value="删除" /></td>
+  </tr>
+  <tr>
+    <td height="30" colspan="2"><input name="addrSumbitButton" type="button" class="MYBUTTON" id="addrSumbitButton" onClick="buttonEvt(this)" value="提交">
+      &nbsp;<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="buttonEvt(this)" value="重置"></td>
+  </tr>
+  <tr>
+    <td height="34" colspan="2"><div id="displayCur" ></div></td>
+  </tr>
+  <tr>
+    <td height="34" colspan="2"><div id="displayNew" ></div></td>
+  </tr>
+</table>
+</br>
+<table width="591" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
+  <tr>
+    <td><textarea name="tmpLog" cols="70" rows="10" class="TMPLOG" id="tmpLog" readonly="true">{"tmp.log"}</textarea></td>
+  </tr>
+</table>
+</br>
+<table width="591" border="0" align="center">
+  <tr>
+    <td><div align="left" id="block_footer"></div>&nbsp;</td>
+  </tr>
+</table>
+<script type="text/javascript">
+
+</script>
+
+<script type="text/javascript">
+
+var newSlaveAddrsArray = new Array();
+var newSlaveAddrs = "";
+var curSlaveAddrs00 = "";
+var curSlaveAddrsSum = 0;
+var ttt = 0;
+
+function buttonEvt(btn)
+{
+	var slavesAddrDisplay = document.getElementById("displayNew");
+	var slaveAddr = document.getElementById("address");
+	var i = 0;	
+	var separation = " ";
+	var number = /^[0-9]/;
+	var str = /^[0-9a-zA-Z]/;
+	var tmp;
+	var jsonStr = "";
+		
+	if ("addrSumbitButton" == btn.id)
+	{	
+		if (0 < newSlaveAddrsArray.length)
+		{					
+			document.getElementById("displayNew").innerHTML = "";
+			document.getElementById("address").value = "";
+			
+			jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":1' + "," + '"addresses":' + "[" + newSlaveAddrsArray + "]" + "}";
+			sendHttpReq("POST", "slave_addrs", jsonStr);
+			
+			newSlaveAddrsArray.splice(0, newSlaveAddrsArray.length);
+			newSlaveAddrs = "";			
+		}
+	}
+	else if ("midIdSubmitButton" == btn.id)
+	{		
+		if (10 != document.getElementById("midId").value.length || !str.test(document.getElementById("midId").value))
+		{
+			alert("您的中间件ID " + document.getElementById("midId").value + " 不合法，请重新输入！");
+			document.getElementById("midId").value = "";
+		}
+		else
+		{
+			document.getElementById("midId").value = document.getElementById("midId").value.toUpperCase();
+			jsonStr = 
+			"{" + 
+			'"midId":' + '"' + document.getElementById("midId").value + '"' + ',' +
+			'"midIdCh":' + '"' + document.getElementById("midId_ch").value + '"' 
+			+ "}";
+			sendHttpReq("POST", "mid_id", jsonStr);
+			document.getElementById("midId").value = "";
+			document.getElementById("midId_ch").value = "";
+		}	
+	}
+	else if ("addButton" == btn.id)
+	{	
+		
+		if (64 > (newSlaveAddrsArray.length + curSlaveAddrsSum))
+		{
+			
+			if (!isNaN(slaveAddr.value) && number.test(slaveAddr.value))
+			{	
+				if (5 >= slaveAddr.value.length && 65535 > slaveAddr.value)
+				{	
+					tmp = "00000" + slaveAddr.value;
+					tmp = tmp.substring((tmp.length-5));
+						
+					if (newSlaveAddrs.match(tmp) || curSlaveAddrs00.match(tmp))
+					{		
+						alert(tmp + " 已添加！");
+					}
+					else
+					{
+						newSlaveAddrsArray[newSlaveAddrsArray.length] = Number(tmp);							
+						newSlaveAddrs = newSlaveAddrs + separation + tmp;
+					
+						slavesAddrDisplay.innerHTML = newSlaveAddrs + "</br></br>" + "新增自控仪数量：" + newSlaveAddrsArray.length;	
+					}
+				}
+				else
+				{
+					alert("您的 " + slaveAddr.value + " 自控仪地址大于65534，请重新输入！");
+					document.getElementById("address").value = "";
+				}
+			}
+			else if (0 < slaveAddr.value.length)
+			{	
+				alert("您的 " + slaveAddr.value + " 自控仪地址含有非数字，请重新输入！");	
+				document.getElementById("address").value = "";
+			}
+		}		
+	}	
+	else if ("delButton" == btn.id)
+	{			
+		if (!isNaN(slaveAddr.value) && number.test(slaveAddr.value) && 0 < curSlaveAddrsSum)
+		{	
+			if (5 >= slaveAddr.value.length && 65535 > slaveAddr.value)
+			{					
+				tmp = "00000" + slaveAddr.value;
+				tmp = tmp.substring((tmp.length-5));
+				
+				if (!curSlaveAddrs00.match(tmp))
+				{
+					alert(tmp + " 不存在请重新输入！");
+				}
+				else
+				{
+					jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":0' + "," + '"addresses":' + "[" + Number(tmp) + "]" + "}";
+					sendHttpReq("POST", "slave_addrs", jsonStr);
+				}
+				
+				document.getElementById("address").value = "";
+				
+			}
+			else
+			{
+				alert("您的 " + slaveAddr.value + " 自控仪地址大于65534，请重新输入！");
+				document.getElementById("address").value = "";
+			}
+		}
+		else if (0 < slaveAddr.value.length)
+		{	
+			alert("您的 " + slaveAddr.value + " 自控仪地址含有非数字，请重新输入！");	
+			document.getElementById("address").value = "";
+		}		
+	}
+	else if ("resetButton" == btn.id)
+	{	
+		document.getElementById("displayNew").innerHTML = "";
+		document.getElementById("address").value = "";
+		newSlaveAddrsArray.splice(0,newSlaveAddrsArray.length);
+		newSlaveAddrs = "";		
+	}
+}
+
+//XmlHttpRequest对象    
+function createXmlHttpRequest()
+{    
+    if(window.ActiveXObject) //如果是IE浏览器 
+    {    
+        return new ActiveXObject("Microsoft.XMLHTTP");    
+    }
+    else if(window.XMLHttpRequest) //非IE浏览器  
+    {     	
+        return new XMLHttpRequest();    
+    }    
+}  
+
+function sendHttpReq(method, url, data)
+{	
+	var httpRequest = createXmlHttpRequest();
+	var text;
+	var tmp = " ";
+
+	httpRequest.abort();
+	httpRequest.open(method, url, false);
+
+	httpRequest.send(data);
+
+	text = httpRequest.responseText;
+	
+	delete httpRequest;
+	
+	return text;
+}
+
+function initPage()
+{	
+
+	var midId;
+	var version;
+	var tmpLog;
+	
+	midId = sendHttpReq("GET", "mid_id", null);
+	document.getElementById("midId").value = midId.substring(0, 10);
+	document.getElementById("midId_ch").value = midId.substring(10, midId.length);
+	
+	curSlaveAddrs00 = sendHttpReq("GET", "cur_slave_addrs_00", null);
+	document.getElementById("displayCur").innerHTML = curSlaveAddrs00;
+	
+	curSlaveAddrsSum = curSlaveAddrs00.substring(curSlaveAddrs00.indexOf("：") + 1);
+	curSlaveAddrsSum = Number(curSlaveAddrsSum);	
+	
+	version = sendHttpReq("GET", "version", null);
+	version = "版本： " + version.substring(0,1) + "." + version.substring(1,2) + "." + version.substring(2,3);	
+	document.getElementById("block_footer").innerHTML = version;
+	
+	tmpLog = sendHttpReq("GET", "tmp_log", null);
+	document.getElementById("tmpLog").value = tmpLog;
+	
+	
+}
+
+function updateTmpLog()
+{
+	var tmpLog;
+	
+	tmpLog = sendHttpReq("GET", "tmp_log", null);
+	document.getElementById("tmpLog").value = tmpLog;
+	
+	setTimeout("updateTmpLog()", 5000);	
+}
+
+initPage();
+
+setTimeout("updateTmpLog()", 5000);
+
+</script>
+
+</body>
+</html>
