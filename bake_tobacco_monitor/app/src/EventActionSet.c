@@ -35,8 +35,8 @@ unsigned char g_TmpLog[80] = {0};
 
 //------------Declaration static function for--------------//
 
-static void 	UploadData(void);
-static int	 	UploadFeedbacks(int type, const char *pFileName, unsigned char *pData, unsigned int len);
+static void 	UploadData(int aisle);
+static int	 	UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int aisle, int socektFd);
 
 //---------------------------end---------------------------//
 
@@ -47,14 +47,17 @@ static int	 	UploadFeedbacks(int type, const char *pFileName, unsigned char *pDa
 				: pFileName - backup file name.
 				: pData - data.
 				: len - the length of data.
+				: aisle - in.
+				: socketFd - in.
 **Return		: 0 - ok, ohter - failed.
 ***********************************************************************/
-static int UploadFeedbacks(int type, const char *pFileName, unsigned char *pData, unsigned int len)
+static int UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int aisle, int socektFd)
 {
 	unsigned char json_str[100] = {0};
-	int slave_address = 0;
-	int res = 0;
-	int i = 0;
+	char data_file_name[20] 	= {0};
+	int slave_address 			= 0;
+	int res 					= 0;
+	int i 						= 0;
 	
 	slave_address = pData[0];
 	slave_address <<= 8;
@@ -75,10 +78,15 @@ static int UploadFeedbacks(int type, const char *pFileName, unsigned char *pData
 	json_str[res - 1] = ']';
 	json_str[res] = '}';
 	
-	//res = SendDataToServer(json_str, (res + 1));
+	if (0 <= socektFd)
+	{
+		res = SendDataToServer(socektFd, json_str, (res + 1));
+	}
+	
 	if (0 != res)
 	{
-		BackupAsciiData(pFileName, json_str);
+		sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
+		BackupAsciiData(data_file_name, json_str);
 	}
 		
 	return res;
@@ -88,21 +96,26 @@ static int UploadFeedbacks(int type, const char *pFileName, unsigned char *pData
 /***********************************************************************
 **Function Name	: UploadData
 **Description	: upload data to server.
-**Parameter		: none.
+**Parameter		: aisle - in.
 **Return		: none.
 ***********************************************************************/
-static void UploadData(void)
+static void UploadData(int aisle)
 {
-	FILE *fp = NULL;
-	unsigned char upload_buf[UPLOAD_SER_SIZE] = {0};
-	int socket_fd = -1;
+	FILE *fp 									= NULL;
+	unsigned char upload_buf[UPLOAD_SER_SIZE] 	= {0};
+	int socket_fd 								= -1;
+	char data_file_name[20] 					= {0};
 	
 	L_DEBUG("start a connection!\n");
 		
-	socket_fd = ConnectServer(1, g_Param8124);				
+	socket_fd = ConnectServer(1, g_Param8124);	
+
 	if(0 <= socket_fd)
 	{
-		fp = fopen(DATA_FILE, "r");
+		sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
+
+		fp = fopen(data_file_name, "r");
+
 		if (NULL != fp)
 		{
 			do
@@ -118,7 +131,7 @@ static void UploadData(void)
 
 			fclose(fp);
 	
-			remove(DATA_FILE);				
+			remove(data_file_name);				
 		}	
 	}	
 	
@@ -143,7 +156,10 @@ void SendDataReq(int arg)
 	unsigned char address[SLAVE_ADDR_LEN] = {0};
 	unsigned char data_status = 0;
 	TIME start;
-		
+	
+	SetCurSlavePositionOnTab(param.m_Aisle, 0);
+	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
+
 	//--- get slaver sum and start position on param.m_Aisle ---//
 	if (0x0000ffff != param.m_Body.m_Id)
 	{
@@ -238,7 +254,7 @@ void SendDataReq(int arg)
 	SetCurSlavePositionOnTab(param.m_Aisle, 0);
 	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
 	
-	UploadData();
+	UploadData(param.m_Aisle);
 	
 	L_DEBUG("===========================================\n");
 	L_DEBUG("%d slaves req data successful by %d aisle!\n", counter, param.m_Aisle);
@@ -262,6 +278,7 @@ void SendConfigData(int arg)
 	unsigned char address[SLAVE_ADDR_LEN] 	= {0};
 	unsigned int counter 		= 0;
 	unsigned char data_status 	= 0;
+	int	socket_fd				= 0;
 	char evt_types[3] 			= {ALERT_DATA_TYPE, STATUS_DATA_TYPE, CURVE_DATA_TYPE};
 	TIME start;
 	EventParams next_evt_param;
@@ -270,6 +287,9 @@ void SendConfigData(int arg)
 	res <<= 8;
 	res |= param.m_Body.m_RemoteCmd.m_Addr[1];
 	
+	SetCurSlavePositionOnTab(param.m_Aisle, 0);
+	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
+
 	//--- get slave sum and start position on param.m_Aisle ---//	
 	if (0x0000ffff != res)
 	{
@@ -287,6 +307,8 @@ void SendConfigData(int arg)
 		slave_sum = GetSlaveSumOnAisle(param.m_Aisle);
 		position = GetCurSlavePositionOnTab(param.m_Aisle);		
 	}
+
+	socket_fd = ConnectServer(1, g_Param8124);
 
 	while (position < slave_sum)
 	{	
@@ -361,7 +383,7 @@ void SendConfigData(int arg)
 		}
 					
 		//--- tell server what we modify ok ---//
-		res = UploadFeedbacks(param.m_Body.m_RemoteCmd.m_Type, DATA_FILE, data, (1 + SLAVE_ADDR_LEN));
+		res = UploadFeedbacks(param.m_Body.m_RemoteCmd.m_Type, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle, socket_fd);
 		//--- end ---//	
 		
 		SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
@@ -407,6 +429,7 @@ void SendFwUpdateNotice(int arg)
 	unsigned int position 		= 0;
 	int res 					= 0;
 	int fw_count 				= 0;
+	int socket_fd				= 0;
 	int send_again_counter 		= 0;
 	unsigned int counter 		= 0;
 	unsigned char data[1 + SLAVE_ADDR_LEN] 				= {0};
@@ -416,7 +439,10 @@ void SendFwUpdateNotice(int arg)
 	TIME start;
 	TIME start1;
 	EventParams next_evt_param;
-		
+	
+	SetCurSlavePositionOnTab(param.m_Aisle, 0);
+	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
+
 	//--- get slaver sum and start position on param.m_Aisle ---//	
 	if (0x0000ffff != param.m_Body.m_Id)
 	{
@@ -457,6 +483,8 @@ void SendFwUpdateNotice(int arg)
 	
 	L_DEBUG("VER = %d\n", notice[6 + SLAVE_ADDR_LEN]);
 	//--- end of fill notice content ---//
+
+	socket_fd = ConnectServer(1, g_Param8124);
 	
 	while(position < slave_sum)	
 	{
@@ -534,7 +562,7 @@ void SendFwUpdateNotice(int arg)
 		}
 		
 		//--- tell server what we have updated a machine ---//
-		res = UploadFeedbacks(5, DATA_FILE, data, (1 + SLAVE_ADDR_LEN));
+		res = UploadFeedbacks(5, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle, socket_fd);
 		//--- end ---//	
 		
 		COUNTER(6, send_again_counter);

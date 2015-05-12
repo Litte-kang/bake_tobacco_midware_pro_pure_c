@@ -9,7 +9,7 @@
 
 #define SLAVES_ADDR_CONF			"./conf/slaves_addr/aisle_"
 
-#define DATA_FILE					"./data/data"
+#define DATA_FILE					"./data/data_"
 
 
 /****************************************************************
@@ -60,6 +60,14 @@ The scope of value	: /.
 First used			: /.
 */
 extern FWInformation g_FWInfo;
+
+/*
+Description			: 1 - full lite mode,0 - half lite mode.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+extern char g_IsFullMode;
 
 //-------------------------------------DECLARATION VARIABLE END-------------------------------------------//
 

@@ -34,6 +34,14 @@ First used			: AisleManageInit()
 FWInformation g_FWInfo = {0};
 
 /*
+Description			: 1 - full lite mode,0 - half lite mode.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+char g_IsFullMode = 0;
+
+/*
 Description			: aisles.
 Default value		: /.
 The scope of value	: /.
@@ -156,8 +164,9 @@ static int GetAislePositionOnTab(int aisle)
 ***********************************************************************/
 static void AlertTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 {
-	int pos = 0;
-    int slave_position = 0;
+	int pos 				= 0;
+    int slave_position 		= 0;
+    char data_file_name[20] = {0};
     
     L_DEBUG("Alert data!\n");  
      
@@ -165,16 +174,15 @@ static void AlertTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	
 	slave_position = GetCurSlavePositionOnTab(aisle);
 	
-	if (0 == memcmp(g_AisleInfo[pos].m_SlavesAddrTab[slave_position], &pData[2], SLAVE_ADDR_LEN))
-	{
-		L_DEBUG("slave(%.5d) alert ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
-	}
-	else
+	if (0 != memcmp(g_AisleInfo[pos].m_SlavesAddrTab[slave_position], &pData[2], SLAVE_ADDR_LEN) && 0 == g_IsFullMode)
 	{
 		return;
 	}
-		
-	WriteDataToLocal(DATA_FILE, pData, len);
+	
+	L_DEBUG("slave(%.5d) alert ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
+
+	sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
+	WriteDataToLocal(data_file_name, pData, len);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;	
 }
@@ -192,9 +200,9 @@ static void AckDataTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	L_DEBUG("ack data!\n");
 	
 	{
-		int type = 0;
-		int res = 0;
-		int slave_position = 0;
+		int type 			= 0;
+		int res 			= 0;
+		int slave_position 	= 0;
 		
 		type = (int)pData[9];
 		
@@ -253,8 +261,9 @@ static void AckDataTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 ***********************************************************************/
 static void StatusTypeEvent(int aisle, unsigned char*pData, unsigned int len)    
 {
-    int pos = 0;
-    int slave_position = 0;
+    int pos 				= 0;
+    int slave_position 		= 0;
+    char data_file_name[20] = {0};
     
     L_DEBUG("Status data!\n");
     
@@ -262,18 +271,17 @@ static void StatusTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	
 	slave_position = GetCurSlavePositionOnTab(aisle);
 	
-	if (0 == memcmp(g_AisleInfo[pos].m_SlavesAddrTab[slave_position], &pData[2], SLAVE_ADDR_LEN))
-	{
-		L_DEBUG("slave(%.5d) status ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
-	}
-	else
+	if (0 != memcmp(g_AisleInfo[pos].m_SlavesAddrTab[slave_position], &pData[2], SLAVE_ADDR_LEN) && 0 == g_IsFullMode)
 	{
 		return;
-	}	
-		
-	WriteDataToLocal(DATA_FILE, pData, len);	
+	}
 	
-	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;
+	L_DEBUG("slave(%.5d) status ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
+
+	sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
+	WriteDataToLocal(data_file_name, pData, len);
+	
+	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;	
 }
 
 /***********************************************************************
@@ -383,25 +391,25 @@ static void UpdateAckTypeEvent(int aisle, unsigned char *pData, unsigned int len
 ***********************************************************************/
 static void CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len)
 {
-    int pos = 0;
-    int slave_position = 0;
+    int pos 				= 0;
+    int slave_position 		= 0;
+    char data_file_name[20] = {0};
     
-    L_DEBUG("curve data!\n");
+    L_DEBUG("Curve data!\n");
     
 	pos = GetAislePositionOnTab(aisle);
 	
 	slave_position = GetCurSlavePositionOnTab(aisle);
 	
-	if (0 == memcmp(g_AisleInfo[pos].m_SlavesAddrTab[slave_position], &pData[2], SLAVE_ADDR_LEN))
-	{
-		L_DEBUG("slave(%.5d) curve data ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
-	}
-	else
+	if (0 != memcmp(g_AisleInfo[pos].m_SlavesAddrTab[slave_position], &pData[2], SLAVE_ADDR_LEN) && 0 == g_IsFullMode)
 	{
 		return;
-	}	
-		
-	WriteDataToLocal(DATA_FILE, pData, len);
+	}
+	
+	L_DEBUG("slave(%.5d) curve ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
+
+	sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
+	WriteDataToLocal(data_file_name, pData, len);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;		
 }

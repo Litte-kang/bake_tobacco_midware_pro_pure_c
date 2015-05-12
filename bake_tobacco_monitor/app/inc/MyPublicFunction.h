@@ -48,6 +48,14 @@ First used			: AppInit()
 extern unsigned char g_MyLocalID[11];
 
 /*
+Description			: partner machine id(last bit)
+Default value		: 0
+The scope of value	: /
+First used			: AppInit()
+*/
+extern unsigned char g_PartnerId;
+
+/*
 Description			: connect server parameter.
 Default value		: /
 The scope of value	: /

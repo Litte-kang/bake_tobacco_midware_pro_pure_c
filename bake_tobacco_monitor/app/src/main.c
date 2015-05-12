@@ -86,14 +86,6 @@ First used			: AppInit()
 */
 unsigned char g_PartnerId = 0;
 
-/*
-Description			: 1 - full lite mode,0 - half lite mode.
-Default value		: 0
-The scope of value	: /
-First used			: AppInit()
-*/
-static char g_IsFullMode = 0;
-
 //---------------------------end-------------------------------//
 
 
@@ -522,6 +514,7 @@ static void GetRemoteCmd()
 	LogoutClient(socket_fd);
 	
 	json_object_put(my_json);
+	json_object_put(my_array);
 }
 
 

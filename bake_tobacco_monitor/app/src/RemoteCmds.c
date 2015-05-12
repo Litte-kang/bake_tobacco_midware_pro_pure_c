@@ -82,7 +82,7 @@ static void* DownloadFw(void* pArg)
 	{
 		printf("%s:create child process failed!\n",__FUNCTION__);
 	}
-	else if (0 == pid_id)
+	else if (0 == pid_id) //-- download fw process --//
 	{		
 		sprintf(args, "./fws/fw_%d", fw_type); //-- make a director --//
 		mkdir(args);
@@ -93,7 +93,7 @@ static void* DownloadFw(void* pArg)
 	}
 	else
 	{
-		//--- wati fw is downloaded ---//s
+		//--- wati fw is downloaded ---//
 		do
 		{
 			child_id = waitpid(pid_id, NULL, WNOHANG);
@@ -387,6 +387,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 
 	for (i = 0; i < cmd_sum; ++i)
 	{		
+		//--- parse cmd data ---//
 		my_cmd = json_object_array_get_idx(my_cmds, i);				//-- get a cmd --//
 
 		my_obj = json_object_object_get(my_cmd, "type");
@@ -414,6 +415,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 		json_object_put(my_data);
 		json_object_put(my_cmd);
 
+		//--- add event ---//
 		if (REMOTE_CMD_NEW_FW_NOTICE == cmd_info.m_Type)
 		{
 			L_DEBUG("UPDATE CMD\n");
@@ -422,7 +424,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 			return 0;	
 		}
 		
-		if (2 > cmd_info.m_DataLen) //-- request get data handle --//
+		if (3 >= cmd_info.m_DataLen) //-- request get data handle --//
 		{
 			if (REMOTE_CMD_SEARCH_SLAVE_STATUS == cmd_info.m_Type)
 			{
@@ -434,7 +436,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 			
 			RemoteCMD_GetSlaveData(fd, cmd_info);
 		}
-		else if (2 <= cmd_info.m_DataLen)	//-- request modify data handle --//
+		else if (3 < cmd_info.m_DataLen)	//-- request modify data handle --//
 		{
 			L_DEBUG("CONFIG SLAVES CMD\n");
 			RemoteCMD_ConfigSlave(fd, cmd_info);		

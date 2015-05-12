@@ -82,6 +82,7 @@ int ConnectServer(unsigned int times, CNetParameter param)
 	}while(--times);
 	
 	printf("connect %s:%d failed!\n", param.m_IPAddr, param.m_Port);
+	close(socket_fd);
 	
 	return -1;
 }
@@ -106,6 +107,12 @@ int RecDataFromServer(int fd, unsigned char *pBuff, unsigned int len, int timeou
 	{
 		printf("%s:memory error!\n",__FUNCTION__);
 		return -1;
+	}
+
+	if (0 > fd)
+	{
+		printf("%s:socket fd error!\n",__FUNCTION__);
+		return -3;
 	}
 	
 	FD_ZERO(&inset);
@@ -134,6 +141,7 @@ int RecDataFromServer(int fd, unsigned char *pBuff, unsigned int len, int timeou
 	}
 	else if (0 == rec_len)
 	{
+		printf("%s:connection break!\n",__FUNCTION__);
 		return -5;
 	}	
 
@@ -159,12 +167,20 @@ int SendDataToServer(int fd, unsigned char *pBuff, unsigned int len)
 		return -1;
 	}
 
-	send_len = send(fd, pBuff, len, 0);
-	
-	if (-1 == send_len)
+	if (0 <= fd)
 	{
-		printf("%s:send data to server failed!\n",__FUNCTION__);
-		return -2;
+		send_len = send(fd, pBuff, len, 0);
+		
+		if (-1 == send_len)
+		{
+			printf("%s:send data to server failed!\n",__FUNCTION__);
+			return -2;
+		}		
+	}
+	else
+	{
+		printf("%s:socket fd error!\n",__FUNCTION__);
+		return -3;
 	}
 
 	return 0;
