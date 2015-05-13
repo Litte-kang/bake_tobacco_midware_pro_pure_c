@@ -424,7 +424,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 			return 0;	
 		}
 		
-		if (2 >= cmd_info.m_DataLen) //-- request get data handle --//
+		if (2 > cmd_info.m_DataLen) //-- request get data handle --//
 		{
 			if (REMOTE_CMD_SEARCH_SLAVE_STATUS == cmd_info.m_Type)
 			{
@@ -436,7 +436,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 			
 			RemoteCMD_GetSlaveData(fd, cmd_info);
 		}
-		else if (2 < cmd_info.m_DataLen)	//-- request modify data handle --//
+		else if (2 <= cmd_info.m_DataLen)	//-- request modify data handle --//
 		{
 			L_DEBUG("CONFIG SLAVES CMD\n");
 			RemoteCMD_ConfigSlave(fd, cmd_info);		
