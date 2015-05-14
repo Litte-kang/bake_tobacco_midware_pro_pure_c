@@ -30,9 +30,27 @@ First used			:
 
 //------------Declaration function for xxx--------------//
 
-
+static void CatchSig(int SigNum);
 
 //---------------------------end-----------------------//
+
+/***********************************************************************
+**Function Name	: CacthSig
+**Description	: this is callback,when a specified signal come, call it.
+**Parameters	: SigNum - signal type.
+**Return		: none.
+***********************************************************************/
+static void CatchSig(int SigNum)
+{
+	switch (SigNum)
+	{
+		case SIGPIPE:
+			printf("catch SIGPIPE!\n");
+			break;
+		default:
+			break;
+	}
+}
 
 /***********************************************************************
 **Function Name	: ConnectServer
@@ -46,7 +64,9 @@ int ConnectServer(unsigned int times, CNetParameter param)
 	SOCKADDR_IN serv_addr = {0};
 	int tmp = 0;
 	int socket_fd = -1;
-	
+	struct sigaction action;
+	struct sigaction sa;
+
 	if (0 >= times)
 	{		
 		printf("%s:param error\n", __FUNCTION__);
@@ -75,6 +95,15 @@ int ConnectServer(unsigned int times, CNetParameter param)
 		{			
 			printf("connect %s:%d sucessful!\n", param.m_IPAddr, param.m_Port);
 			
+			sa.sa_handler = SIG_IGN;
+			action.sa_handler = CatchSig;
+
+			sigemptyset(&action.sa_mask);
+
+			action.sa_flags = 0;
+			sigaction(SIGPIPE, &sa, 0);
+			sigaction(SIGPIPE, &action, 0);
+
 			return socket_fd;
 		}
 		

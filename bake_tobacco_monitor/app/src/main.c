@@ -504,14 +504,22 @@ static void GetRemoteCmd()
 		{
 			L_DEBUG("remote cmd is [%s]\n", remote_cmd);
 			ProRemoteCmd(g_UartFDS[0], remote_cmd);
+
+			SendDataToServer(socket_fd, (unsigned char*)json_object_to_json_string(my_json), strlen(json_object_to_json_string(my_json)));
+			if(RecDataFromServer(socket_fd, remote_cmd, 256, 1)) //-- wait server closing connection --//
+			{
+				sleep(1);
+				LogoutClient(socket_fd);
+			}
 		}
 		else
 		{
-			L_DEBUG("%s:get remote cmd timeout!\n", __FUNCTION__);
+			printf("%s:get remote cmd timeout!\n", __FUNCTION__);
+
+			Delay_ms(100);
+			LogoutClient(socket_fd);
 		}
 	}
-	
-	LogoutClient(socket_fd);
 	
 	json_object_put(my_json);
 	json_object_put(my_array);

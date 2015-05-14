@@ -132,10 +132,15 @@ static void UploadData(int aisle)
 			fclose(fp);
 	
 			remove(data_file_name);				
+		}
+
+		SendDataToServer(socket_fd, upload_buf, strlen(upload_buf));
+		if(RecDataFromServer(socket_fd, upload_buf, 256, 1)) //-- wait server closing connection --//
+		{
+			sleep(1);
+			LogoutClient(socket_fd);
 		}	
 	}	
-	
-	LogoutClient(socket_fd);
 }
 
 /***********************************************************************
@@ -146,15 +151,15 @@ static void UploadData(int aisle)
 ***********************************************************************/
 void SendDataReq(int arg)
 {
-	EventParams param = (*(EventParams*)arg); 
-	unsigned int res = 0;
-	unsigned int slave_sum = 0;
-	unsigned int position = 0;
+	EventParams param 				= (*(EventParams*)arg); 
+	unsigned int res 				= 0;
+	unsigned int slave_sum 			= 0;
+	unsigned int position 			= 0;
 	unsigned int send_again_counter = 0;
-	unsigned int timeout = 0;
-	unsigned int counter = 0;
-	unsigned char address[SLAVE_ADDR_LEN] = {0};
-	unsigned char data_status = 0;
+	unsigned int timeout 			= 0;
+	unsigned int counter 			= 0;
+	unsigned char address[SLAVE_ADDR_LEN] 	= {0};
+	unsigned char data_status 				= 0;
 	TIME start;
 	
 	SetCurSlavePositionOnTab(param.m_Aisle, 0);
@@ -399,6 +404,9 @@ void SendConfigData(int arg)
 	L_DEBUG("%d slaves configure successful by %d aisle!\n", counter, param.m_Aisle);
 	L_DEBUG("===========================================\n");
 
+	Delay_ms(1500);
+	LogoutClient(socket_fd);
+
 	if (counter)
 	{
 		next_evt_param.m_Aisle = param.m_Aisle;	
@@ -582,6 +590,8 @@ void SendFwUpdateNotice(int arg)
 	L_DEBUG("%d slaves update successful by %d aisle\n", counter, param.m_Aisle);
 	L_DEBUG("===========================================\n");
 	
+	LogoutClient(socket_fd);
+
 	if (counter)
 	{
 		next_evt_param.m_Aisle = param.m_Aisle;

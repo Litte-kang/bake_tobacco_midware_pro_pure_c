@@ -87,8 +87,17 @@ static void* DownloadFw(void* pArg)
 		sprintf(args, "./fws/fw_%d", fw_type); //-- make a director --//
 		mkdir(args);
 		
-		sprintf(args, "-P ./fws/fw_%d ftp://cs_innotek:cs_innotek@%s/%d.%.3d.fw", fw_type, g_Param8124.m_IPAddr, fw_type, fw_ver);
+		if (100 == fw_type)
+		{
+			sprintf(args, "-P ./fws/fw_%d ftp://cs_innotek:cs_innotek@%s/mips/%d/%d.%.3d.fw", fw_type, g_Param8124.m_IPAddr, fw_type, fw_type, fw_ver);
+		}
+		else
+		{
+			sprintf(args, "-P ./fws/fw_%d ftp://cs_innotek:cs_innotek@%s/%d/%d.%.3d.fw", fw_type, g_Param8124.m_IPAddr,  fw_type, fw_type, fw_ver);
+		}
+
 		L_DEBUG("args is %s\n", args);
+
 		execl("./bin/download_fw", "./bin/download_fw", args, NULL);
 	}
 	else
