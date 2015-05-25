@@ -33,8 +33,6 @@
 #define THREAD_SIZE      				3
 #define CONNECT_TIMEOUT					5
 
-#define SER_ADDR						"./conf/ser_ip"
-
 //---------------------------end-------------------------------//
 
 //------------Declaration static function for xxx--------------//
@@ -51,6 +49,7 @@ static void 	ReadConfInfo();
 static void 	RecUartData(int fd);
 static void 	TimerCallback(int SigNum);
 static void 	GetRemoteCmd();
+static void 	UploadAisleData();
 
 //--------------------Define variable for xxx------------------//
 
@@ -77,6 +76,14 @@ The scope of value	: /
 First used			: AppInit()
 */
 unsigned char g_MyLocalID[11] = {0};
+
+/*
+Description			: sqlite db for aisle data.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+sqlite3 *g_PSqlite3Db;
 
 /*
 Description			: partner machine id(last bit)
@@ -114,10 +121,28 @@ static void AppInit()
 	int target_com[USER_COM_SIZE] = {HOST_COM_PORT0}; 
 #endif
 	int thrd_num[THREAD_SIZE] = {REC_UART0_DATA_NUM, SEND_UART0_DATA_NUM, IDLE_THRD_NUM};
-    int i = 0;
-    int res = 0;
+    int i 			= 0;
+    int res 		= 0;
     void *thrd_ret;
-    FILE *fp = NULL;
+    FILE *fp 		= NULL;
+    char sql[70] 	= {0};
+    char *p_errmsg 	= NULL;
+
+    //--- open aisle_data.db ---//
+	res = sqlite3_open(AISLE_DATA_DB, &g_PSqlite3Db);
+	
+	if(res)
+    {
+    	printf("sqlite3 open the %s failed\n", AISLE_DATA_DB);
+
+        sqlite3_close(g_PSqlite3Db);
+
+        exit(1);
+    }
+    else
+    {
+        printf("sqlite3 open the %s successfully\n", AISLE_DATA_DB);
+    }
    	
    	//--- open uart ---//
 	for (i = 0; i < USER_COM_SIZE; ++i)
@@ -132,6 +157,23 @@ static void AppInit()
 		if( -1 != g_UartFDS[i]) 
 		{
 		    set_com_config(g_UartFDS[i], 9600, 8, 'N', 1);
+
+		    //--- create a table ---/
+			sprintf(sql, "CREATE TABLE %s%.2d(data VARCHAR(250) PRIMARY KEY);", AISLE_DATA_TABLE, g_UartFDS[i]);
+
+			res = sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, &p_errmsg);
+
+			sprintf(sql, "table %s%.2d already exists", AISLE_DATA_TABLE, g_UartFDS[i]);
+
+			if (res && strcmp(p_errmsg, sql))
+			{
+				printf("sqlite3 create %s%.2d failed!\n", AISLE_DATA_TABLE, g_UartFDS[i]);
+				exit(1);
+			}
+			else if (!res && !p_errmsg)
+			{
+				printf("sqlite3 create %s%.2d successfull!\n", AISLE_DATA_TABLE, g_UartFDS[i]);
+			}
 		}
 	}
 	//--- end ---//
@@ -441,13 +483,14 @@ static void TimerCallback(int SigNum)
 	static int s_sec 				= 0;
 	int async_cmd_start_interval[3] = {120, 360, 720}; //-- alert, status, curves --//
 	char evt_types[3] 				= {ALERT_DATA_TYPE, STATUS_DATA_TYPE, CURVE_DATA_TYPE};
-	AsyncEvent evt;
+	AsyncEvent evt 					= {0};
 	int i 							= 0;
 
 	if (SIGALRM == SigNum)
 	{	
 		GetRemoteCmd();
 		
+		UploadAisleData();
 		//-----------------------------------------------------------------//
 	
 		if (0 == g_IsFullMode)
@@ -477,6 +520,12 @@ static void TimerCallback(int SigNum)
 	alarm(1);	
 }
 
+/***********************************************************************
+**Function Name	: GetRemoteCmd
+**Description	: get a remote cmd.
+**Parameter		: none.
+**Return		: none.
+***********************************************************************/
 static void GetRemoteCmd()
 {
 	int socket_fd = -1;
@@ -495,7 +544,7 @@ static void GetRemoteCmd()
 	
 	json_object_object_add(my_json, "data", my_array);
 	
-	socket_fd = ConnectServer(1, g_Param8125);	
+	socket_fd = ConnectServer(2, g_Param8125);	
 	if (0 <= socket_fd)
 	{
 		SendDataToServer(socket_fd, (unsigned char*)json_object_to_json_string(my_json), strlen(json_object_to_json_string(my_json)));
@@ -524,6 +573,69 @@ static void GetRemoteCmd()
 	json_object_put(my_json);
 	json_object_put(my_array);
 }
+
+/***********************************************************************
+**Function Name	: UploadAisleData
+**Description	: upload aisle data to server.
+**Parameter		: none.
+**Return		: none.
+***********************************************************************/
+static void UploadAisleData()
+{
+	int socket_fd					= 0;
+	int upload_sum					= 150;	//-- 1s --//
+	int i 							= 0;
+	char sql[UPLOAD_SER_SIZE + 30] 	= {0};
+	char **p_data 					= NULL;
+
+	socket_fd = ConnectServer(1, g_Param8124);
+	if (0 <= socket_fd)
+	{
+		for (i = 0; i < USER_COM_SIZE; ++i)
+		{
+			do
+			{
+				sprintf(sql, "select * from %s%.d limit 0,1;", AISLE_DATA_TABLE, g_UartFDS[i]);			
+
+				if (!sqlite3_get_table(g_PSqlite3Db, sql, &p_data, NULL, NULL, NULL)) //-- get one data --//
+				{
+					if (!strcmp(p_data[0], "data"))
+					{
+						SendDataToServer(socket_fd, (unsigned char*)p_data[1], strlen(p_data[1]));	//-- upload data --//
+
+						sprintf(sql, "delete from %s%.2d where data='%s';", AISLE_DATA_TABLE, g_UartFDS[i]);	//-- delete one data --//
+
+						sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL);
+					}
+					else
+					{
+						//-- no data --//
+						break;
+					}
+				}
+				else
+				{
+					//-- get data failed --//
+					printf("%s:get data failed from transer station\n", __FUNCTION__);
+					break;
+				}
+
+			}while(--upload_sum);
+
+			upload_sum = 150;
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -22,23 +22,37 @@
 
 //--------------------Define variable for------------------//
 
-/*
-Description			: save tmp log.
-Default value		: \
-The scope of value	: \
-First used			: \
-*/
-unsigned char g_TmpLog[80] = {0};
 
 //---------------------------end--------------------------//
 
 
 //------------Declaration static function for--------------//
 
-static void 	UploadData(int aisle);
 static int	 	UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int aisle, int socektFd);
+static void		SaveAisleLog(unsigned char *pAdress, int type);
 
 //---------------------------end---------------------------//
+
+/***********************************************************************
+**Function Name	: SaveAisleLog
+**Description	: write log to log buff.
+**Parameter		: pAdress - in.
+				: type - in.
+**Return		: none.
+***********************************************************************/
+static void	SaveAisleLog(unsigned char *pAdress, int type)
+{
+	int pos = 0;
+
+	pos  = (g_AisleLogData.m_AvailableSpace > 45) ? g_AisleLogData.m_CurPos : 0;	
+
+	if (0 == pos)
+	{
+		memcpy(g_AisleLogData.m_Data, 0, AISLE_LOG_DATA_SIZE);
+	}
+
+	sprintf(&g_AisleLogData.m_Data[pos], "receive %.5d type(%d) ack timeout!</br>",((int)(pAdress[0] << 8) | pAdress[1]), type);
+}
 
 /***********************************************************************
 **Function Name	: UploadFeedbacks
@@ -53,8 +67,8 @@ static int	 	UploadFeedbacks(int type, unsigned char *pData, unsigned int len, i
 ***********************************************************************/
 static int UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int aisle, int socektFd)
 {
-	unsigned char json_str[100] = {0};
-	char data_file_name[20] 	= {0};
+	unsigned char json_str[75] 	= {0};
+	char sql[100] 				= {0};
 	int slave_address 			= 0;
 	int res 					= 0;
 	int i 						= 0;
@@ -85,62 +99,12 @@ static int UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int
 	
 	if (0 != res)
 	{
-		sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
-		BackupAsciiData(data_file_name, json_str);
+		sprintf(sql, "INSERT INTO '%s%.d' VALUES('%s');", AISLE_DATA_TABLE, aisle, json_str);
+
+		sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL);
 	}
 		
 	return res;
-}
-
-
-/***********************************************************************
-**Function Name	: UploadData
-**Description	: upload data to server.
-**Parameter		: aisle - in.
-**Return		: none.
-***********************************************************************/
-static void UploadData(int aisle)
-{
-	FILE *fp 									= NULL;
-	unsigned char upload_buf[UPLOAD_SER_SIZE] 	= {0};
-	int socket_fd 								= -1;
-	char data_file_name[20] 					= {0};
-	
-	L_DEBUG("start a connection!\n");
-		
-	socket_fd = ConnectServer(1, g_Param8124);	
-
-	if(0 <= socket_fd)
-	{
-		sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
-
-		fp = fopen(data_file_name, "r");
-
-		if (NULL != fp)
-		{
-			do
-			{
-				fscanf(fp, "%s\n", upload_buf);
-	
-				if (0 != upload_buf[0])
-				{
-					SendDataToServer(socket_fd, upload_buf, strlen(upload_buf));
-				}
-	
-			}while(!feof(fp));
-
-			fclose(fp);
-	
-			remove(data_file_name);				
-		}
-
-		SendDataToServer(socket_fd, upload_buf, strlen(upload_buf));
-		if(RecDataFromServer(socket_fd, upload_buf, 256, 1)) //-- wait server closing connection --//
-		{
-			sleep(1);
-			LogoutClient(socket_fd);
-		}	
-	}	
 }
 
 /***********************************************************************
@@ -217,11 +181,13 @@ void SendDataReq(int arg)
 				res = IS_TIMEOUT(start, (1500));	//-- we will send notice again slave, if not receive ack in (2)s --//
 				if (0 != res)
 				{
-					printf("%s:receive %.5d req(%d) ack timeout!\n", __FUNCTION__,((int)(address[0] << 8) | address[1]), param.m_Type);
-					sprintf(g_TmpLog, "receive %.5d req(%d) ack timeout!</br>",((int)(address[0] << 8) | address[1]), param.m_Type);
-					SaveTmpData(g_TmpLog);
+					printf("%s:receive %.5d type(%d) ack timeout!\n", __FUNCTION__,((int)(address[0] << 8) | address[1]), param.m_Type);
+					
+					SaveAisleLog(address, param.m_Type);
+					
 					SendCommunicationRequest(param.m_Aisle, address, param.m_Type);
 					GET_SYS_CURRENT_TIME(start);
+
 					send_again_counter++;
 				}
 
@@ -258,8 +224,6 @@ void SendDataReq(int arg)
 
 	SetCurSlavePositionOnTab(param.m_Aisle, 0);
 	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
-	
-	UploadData(param.m_Aisle);
 	
 	L_DEBUG("===========================================\n");
 	L_DEBUG("%d slaves req data successful by %d aisle!\n", counter, param.m_Aisle);
@@ -350,9 +314,9 @@ void SendConfigData(int arg)
 				res = IS_TIMEOUT(start, (1500));	//-- we will send request again slave, if not receive ack in 5s --//
 				if (0 != res)
 				{
-					printf("%s:receive %.5d conf ack timeout!\n", __FUNCTION__, ((int)(address[0] << 8) | address[1]));
-					sprintf(g_TmpLog, "receive %.5d conf ack timeout!</br>",((int)(address[0] << 8) | address[1]));
-					SaveTmpData(g_TmpLog);
+					printf("%s:receive %.5d type(%d) ack timeout!\n", __FUNCTION__, ((int)(address[0] << 8) | address[1]), param.m_Body.m_RemoteCmd.m_Type);
+					
+					SaveAisleLog(address, param.m_Body.m_RemoteCmd.m_Type);
 					
 					SendConfigration(param.m_Aisle, address, param.m_Body.m_RemoteCmd.m_Type, param.m_Body.m_RemoteCmd.m_Data, param.m_Body.m_RemoteCmd.m_DataLen);
 					
@@ -403,9 +367,9 @@ void SendConfigData(int arg)
 	L_DEBUG("===========================================\n");
 	L_DEBUG("%d slaves configure successful by %d aisle!\n", counter, param.m_Aisle);
 	L_DEBUG("===========================================\n");
-
-	Delay_ms(1500);
+	
 	LogoutClient(socket_fd);
+	Delay_ms(1000);
 
 	if (counter)
 	{
@@ -579,7 +543,7 @@ void SendFwUpdateNotice(int arg)
 		SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
 		position++;	
 		send_again_counter = 0;			
-		sleep(10);
+		sleep(9);
 	
 	}
 	
@@ -591,6 +555,7 @@ void SendFwUpdateNotice(int arg)
 	L_DEBUG("===========================================\n");
 	
 	LogoutClient(socket_fd);
+	sleep(1);
 
 	if (counter)
 	{

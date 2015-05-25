@@ -94,6 +94,7 @@ int AsyncEventsInit()
 	if (0 != res)
 	{
 		printf("%s:bind attribute failed!\n", __FUNCTION__);
+		return -2;
 	}
 	
 	res = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);

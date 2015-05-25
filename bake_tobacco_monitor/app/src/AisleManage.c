@@ -6,8 +6,8 @@
 #include <errno.h>
 #include "MyClientSocket.h"
 #include "xProtocol.h"
-
-#define INVAILD_SLAVE_ADDR		65535
+#include "AsyncEvents.h"
+#include "EventActionSet.h"
 
 //----------------------------------------DECLARATION FUNCIONT---------------------------------//
 
@@ -17,7 +17,7 @@ static void 	StatusTypeEvent(int aisle, unsigned char *pData, unsigned int len);
 static void 	UpdateAckTypeEvent(int aisle, unsigned char *pData, unsigned int len);
 static void 	CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len);
 static int		UpdateSlaveFw(AisleInfo *pInfo);		
-static int 		WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigned int len);
+static int 		WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigned int len, int aisle);
 static int 		GetAislePositionOnTab(int aisle);
 
 //------------------------------------DECLARATION FUNCIONT END-------------------------------//
@@ -42,6 +42,14 @@ First used			: /
 char g_IsFullMode = 0;
 
 /*
+Description			: save some data from aisle.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+AisleLogData g_AisleLogData;
+
+/*
 Description			: aisles.
 Default value		: /.
 The scope of value	: /.
@@ -59,19 +67,21 @@ static AisleInfo g_AisleInfo[USER_COM_SIZE];
 ***********************************************************************/
 void AisleManageInit()
 {
-	unsigned int slave_sum = 0;
-	int slave_addr = 0;
-	char slaves_addr_conf[38] = {0};
-	int i = 0;
-	int n = 0;
-	FILE *fp = NULL;
-	
-	SaveTmpData((void*)0);
-	
+	unsigned int slave_sum 		= 0;
+	int slave_addr 				= 0;
+	char slaves_addr_conf[30] 	= {0};
+	int i 						= 0;
+	int n 						= 0;
+	FILE *fp 					= NULL;
+
+	g_AisleLogData.m_CurPos = 0;
+	g_AisleLogData.m_AvailableSpace = AISLE_LOG_DATA_SIZE;
+
 	//--- get aisle configration information ---//	
 	for (i = 0; i < USER_COM_SIZE; ++i)
 	{
-		memset(g_AisleInfo[i].m_SlavesAddrTab, 0xff, (MAX_SLAVE_SUM*SLAVE_ADDR_LEN));
+		//--- get slave address ---//
+		memset(g_AisleInfo[i].m_SlavesAddrTab, 0xff, (MAX_SLAVE_SUM * SLAVE_ADDR_LEN));
 		
 		sprintf(slaves_addr_conf, "%s%.2d", SLAVES_ADDR_CONF, i);
 		
@@ -181,8 +191,8 @@ static void AlertTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	
 	L_DEBUG("slave(%.5d) alert ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 
-	sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
-	WriteDataToLocal(data_file_name, pData, len);
+	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, aisle);
+	WriteDataToLocal(data_file_name, pData, len, aisle);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;	
 }
@@ -264,9 +274,7 @@ static void StatusTypeEvent(int aisle, unsigned char*pData, unsigned int len)
     int pos 				= 0;
     int slave_position 		= 0;
     char data_file_name[20] = {0};
-    
-    L_DEBUG("Status data!\n");
-    
+        
 	pos = GetAislePositionOnTab(aisle);
 	
 	slave_position = GetCurSlavePositionOnTab(aisle);
@@ -278,8 +286,8 @@ static void StatusTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	
 	L_DEBUG("slave(%.5d) status ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 
-	sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
-	WriteDataToLocal(data_file_name, pData, len);
+	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, aisle);
+	WriteDataToLocal(data_file_name, pData, len, aisle);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;	
 }
@@ -395,8 +403,6 @@ static void CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len)
     int slave_position 		= 0;
     char data_file_name[20] = {0};
     
-    L_DEBUG("Curve data!\n");
-    
 	pos = GetAislePositionOnTab(aisle);
 	
 	slave_position = GetCurSlavePositionOnTab(aisle);
@@ -408,8 +414,8 @@ static void CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len)
 	
 	L_DEBUG("slave(%.5d) curve ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 
-	sprintf(data_file_name, "%s%.2d", DATA_FILE, aisle);
-	WriteDataToLocal(data_file_name, pData, len);
+	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, aisle);
+	WriteDataToLocal(data_file_name, pData, len, aisle);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;		
 }
@@ -420,13 +426,20 @@ static void CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len)
 **Parameter		: pFileName - file name.
 				: pData - data.
 				: len - the length of data.
+				: aisle - in.
 **Return		: 0 - ok, ohter - failed.
 ***********************************************************************/
-static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigned int len)
+static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigned int len, int aisle)
 {
-	unsigned int tmp = 0;
-	unsigned char upload_buff[UPLOAD_SER_SIZE] = {0};
-	unsigned int slave_addr = 0;
+	unsigned int tmp 							= 0;
+	unsigned char upload_buff[UPLOAD_SER_SIZE] 	= {0};
+	unsigned char sql[UPLOAD_SER_SIZE + 30] 	= {0};
+	unsigned int slave_addr 					= 0;
+	char is_set_slave_time 						= 0;
+	time_t now_time 							= {0};
+	struct tm *p_now_time 						= NULL;
+	AsyncEvent evt 								= {0};
+
 	
 	tmp = (unsigned int)pData[4];
 	
@@ -437,6 +450,12 @@ static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigne
 	{
 		case ALERT_DATA_TYPE:	//-- alert data --//
 			{
+				if (pData[11] & 0x80)
+				{
+					is_set_slave_time = 1;
+					pData[11] &= 0x7f;		//-- set 0 eight bit --// 
+				}
+
 				sprintf(upload_buff, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[%d,%d,%d,%d,%d,%d,%d,%d]}", 
 				g_MyLocalID, tmp, slave_addr, pData[9], pData[10], pData[11], pData[12], pData[16], pData[15], pData[14], pData[13]);
 			}
@@ -477,12 +496,58 @@ static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigne
 	tmp = strlen(upload_buff);
 	
 	L_DEBUG("json(%d):%s\n", tmp, upload_buff);
-	
-	BackupAsciiData(pFileName, upload_buff);
 
+	//--- do here(write db) ---//
+	sprintf(sql, "INSERT INTO '%s' VALUES('%s');", pFileName, upload_buff);
+
+	if (sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL))
+	{
+		printf("%s:insert data failed!\n", __FUNCTION__);
+	}
+	else
+	{
+		L_DEBUG("%s:insert data successful!\n", __FUNCTION__);
+	}
+
+	//--- write log ---//
 	memcpy(&upload_buff[tmp], "</br>", 5);
-	SaveTmpData(upload_buff);
-	
+
+	slave_addr = (g_AisleLogData.m_AvailableSpace > (tmp + 5)) ? g_AisleLogData.m_CurPos : 0;
+
+	if (0 == slave_addr)
+	{
+		memcpy(g_AisleLogData.m_Data, 0, AISLE_LOG_DATA_SIZE);
+	}
+
+	memcpy(&g_AisleLogData.m_Data[slave_addr], upload_buff, (tmp + 5));
+
+	if (is_set_slave_time && (REMOTE_CMD_SYNC_SERVER_TIME_FLAG & g_RemoteCmdFlag))
+	{
+		time(&now_time);
+		p_now_time = localtime(&now_time);
+		
+		evt.m_Action = SendConfigData;
+
+		evt.m_Params.m_Type = CONF_TIME_DATA_TYPE;
+		
+		evt.m_Params.m_Aisle = aisle;
+
+		evt.m_Params.m_Body.m_RemoteCmd.m_Type = CONF_TIME_DATA_TYPE;
+
+		evt.m_Params.m_Body.m_RemoteCmd.m_Addr[0] = 0xff;
+		evt.m_Params.m_Body.m_RemoteCmd.m_Addr[1] = 0xff;
+
+		evt.m_Params.m_Body.m_RemoteCmd.m_Data[0] = (unsigned char)(p_now_time->tm_year % 100);
+		evt.m_Params.m_Body.m_RemoteCmd.m_Data[1] = (unsigned char)(p_now_time->tm_mon + 1);
+		evt.m_Params.m_Body.m_RemoteCmd.m_Data[2] = (unsigned char)p_now_time->tm_mday;
+		evt.m_Params.m_Body.m_RemoteCmd.m_Data[3] = (unsigned char)p_now_time->tm_hour;
+		evt.m_Params.m_Body.m_RemoteCmd.m_Data[4] = (unsigned char)p_now_time->tm_min;
+
+		evt.m_Priority = LEVEL_0;
+
+		AddAsyncEvent(evt);
+	}
+
 	return tmp;
 }
 
@@ -784,32 +849,6 @@ int GetSlavePositionOnTab(int addr, int *pPos ,int aisle)
 	}
 	
 	return -1;
-}
-
-/***********************************************************************
-**Function Name	: SaveTmpData
-**Description	: save 1000 data.
-**Parameter		: pData - in.
-**Return		: none.
-***********************************************************************/
-void SaveTmpData(unsigned char *pData)
-{
-	FILE *fp = NULL;
-	static short counter = 1000;
-	
-	counter++;
-		
-	if (1000 >= counter)
-	{
-		BackupAsciiData("/tmp/tmp.log", pData);
-	}
-	else
-	{
-		fp = fopen("/tmp/tmp.log", "w");
-		fprintf(fp, "{\"tmp.log\"}</br>\n");
-		fclose(fp);
-		counter = 0;
-	}
 }
 
 /***********************************************************************

@@ -29,8 +29,8 @@ typedef struct _EventParams
 	int 			m_Type;
 	union
 	{
-		RemoteCmdInfo 	m_RemoteCmd;
-		int				m_Id;
+		RemoteCmdInfo 	m_RemoteCmd;	//-- config slave --//
+		int				m_Id;			//-- get slave data --//
 	}m_Body;
 }EventParams;
 

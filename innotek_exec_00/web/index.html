@@ -67,7 +67,8 @@
   </tr>
   <tr>
     <td height="30" colspan="2"><input name="addrSumbitButton" type="button" class="MYBUTTON" id="addrSumbitButton" onClick="buttonEvt(this)" value="提交">
-      &nbsp;<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="buttonEvt(this)" value="重置"></td>
+      &nbsp;<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="buttonEvt(this)" value="重置">
+      &nbsp;<input name="getButton" type="button" class="MYBUTTON" id="getButton" onClick="buttonEvt(this)" value="提取自控仪数据"></td>
   </tr>
   <tr>
     <td height="34" colspan="2"><div id="displayCur" ></div></td>
@@ -223,6 +224,11 @@ function buttonEvt(btn)
 		document.getElementById("address").value = "";
 		newSlaveAddrsArray.splice(0,newSlaveAddrsArray.length);
 		newSlaveAddrs = "";		
+	}
+	else if ("getButton" == btn.id)
+	{
+		jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + "}";
+		sendHttpReq("GET", "slave_data", null);		
 	}
 }
 

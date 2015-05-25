@@ -4,13 +4,18 @@
 
 //----------------------Define macro for-------------------//
 
+//--- cmd type ---//
 #define REMOTE_CMD_NEW_FW_NOTICE			4
-#define REMOTE_CMD_SEARCH_SLAVE_STATUS		8
+#define RMMOTE_CMD_CONFIG_MID_PARAM			8
 #define REMOTE_CMD_CONFIG_SLAVE_CURVE		12
 #define REMOTE_CMD_CONFIG_SLAVE_TOBA_SIZE	13
-#define REMOTE_CMD_CONFIG_SLAVE_TIME		14
-#define REMOTE_CMD_SET_SLAVE_ADDR_TAB		15
+#define REMOTE_CMD_CONFIG_MID_TIME			14 //-- sync server time --//
 #define REMOTE_CMD_CONFIG_SLAVE_STAGE		16
+
+//--- cmd flag ---//
+#define REMOTE_CMD_NULL_FLAG					0x00
+#define REMOTE_CMD_START_FW_DOWNLOAD_FLAG	0x01
+#define REMOTE_CMD_SYNC_SERVER_TIME_FLAG		0x02
 
 //---------------------------end---------------------------//
 
@@ -30,6 +35,13 @@ typedef struct _RemoteCmdInfo
 
 //-----------------Declaration variable for----------------//
 
+/*
+Description			: do somethings.
+Default value		: REMOTE_CMD_NULL_FLAG
+The scope of value	: /
+First used			: /
+*/
+char g_RemoteCmdFlag;
 
 //---------------------------end---------------------------//
 

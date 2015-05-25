@@ -4,8 +4,10 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <time.h>
 #include <sys/wait.h>
 #include "RemoteCmds.h"
+#include "MyClientSocket.h"
 #include "AisleManage.h"
 #include "MyPublicFunction.h"
 #include "uart_api.h"
@@ -16,8 +18,8 @@
 
 //----------------------Define macro for-------------------//
 
-#define REMOTE_CMD_NULL_FLAG			0x00
-#define REMOTE_CMD_START_FW_DOWNLOAD_OK	0x01
+#define FW_0_VER			"./fws/fw_0/0.version"
+#define FW_1_VER			"./fws/fw_1/1.version"
 
 //---------------------------end---------------------------//
 
@@ -30,7 +32,7 @@ Default value		: REMOTE_CMD_NULL_FLAG
 The scope of value	: /
 First used			: /
 */
-static char g_RemoteCmdFlag = REMOTE_CMD_NULL_FLAG;
+char g_RemoteCmdFlag = REMOTE_CMD_NULL_FLAG;
 
 //---------------------------end--------------------------//
 
@@ -41,9 +43,8 @@ static void*	DownloadFw(void* pArg);
 static int 		CheckFwVersion(RemoteCmdInfo CMDInfo);
 static int 		RemoteCmd_NewFwNotice(int fd, RemoteCmdInfo CMDInfo);
 static int 		RemoteCmd_ConfigSlave(int fd, RemoteCmdInfo CMDInfo);
-static int 		RemoteCmd_SearchStatus(int fd, RemoteCmdInfo CMDInfo);
-static int 		RemoteCmd_RestartSlave(int fd, RemoteCmdInfo CMDInfo);
-static int 		RemoteCmd_SetSlaveAddrTab(int fd, RemoteCmdInfo CMDInfo);
+static int 		RemoteCmd_ConfigMidParam(int fd, RemoteCmdInfo CMDInfo);
+static int 		RemoteCmd_ConfigMidwareTime(int fd, RemoteCmdInfo CMDInfo);
 static int 		RemoteCmd_GetSlaveData(int fd, RemoteCmdInfo CMDInfo);
 
 //---------------------------end---------------------------//
@@ -68,7 +69,7 @@ static void* DownloadFw(void* pArg)
 	AsyncEvent evt 		= {0};
 	FILE *fp			= NULL;
 	
-	g_RemoteCmdFlag |= REMOTE_CMD_START_FW_DOWNLOAD_OK;
+	g_RemoteCmdFlag |= REMOTE_CMD_START_FW_DOWNLOAD_FLAG;
 
 	fw_type = param.m_Data[6];
 	fw_size = CONV_TO_INT(param.m_Data[0], param.m_Data[1], param.m_Data[2], param.m_Data[3]);
@@ -137,11 +138,24 @@ static void* DownloadFw(void* pArg)
 					evt.m_Priority = LEVEL_0;
 					
 					AddAsyncEvent(evt);
+
+					tmp = 1;
 				}
 			}
 			else
 			{
 				printf("%s:down fw failed!\n", __FUNCTION__);
+				tmp = 0;
+			}
+
+			fd = ConnectServer(1, g_Param8124);
+
+			if (0 <= fd)
+			{
+				sprintf(args, "{\"type\":4,\"address\":\"%s\",\"data\":[%d]}",g_MyLocalID, tmp);
+				SendDataToServer(fd, args, strlen(args));
+				LogoutClient(fd);
+				sleep(1);
 			}
 		}
 		else
@@ -234,15 +248,27 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 	int fw_size 			= 0;
 	int sections			= 0;
 	int last_section_size 	= 0;
+	int socket_fd			= 0;
 	pthread_t thread;
 	pthread_attr_t attr;
-	void *thrd_ret 			= NULL;
-	AsyncEvent evt 			= {0};
+	void *thrd_ret 					= NULL;
+	AsyncEvent evt 					= {0};
+	unsigned char feedback[50] 		= {0};
 
 	res = CheckFwVersion(CMDInfo);
 	
 	if (0 == res) //--- older version ---//
 	{
+		socket_fd = ConnectServer(1, g_Param8124);
+
+		if (0 <= socket_fd)
+		{
+			sprintf(feedback, "{\"type\":4,\"address\":\"%s\",\"data\":[2]}",g_MyLocalID);
+			SendDataToServer(socket_fd, feedback, strlen(feedback));
+			LogoutClient(socket_fd);
+			sleep(1);
+		}
+
 		return 0;
 	}
 	
@@ -260,6 +286,16 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 	
 	if (1 == res)	//--- the same version ---//
 	{
+		socket_fd = ConnectServer(1, g_Param8124);
+
+		if (0 <= socket_fd)
+		{
+			sprintf(feedback, "{\"type\":4,\"address\":\"%s\",\"data\":[1]}",g_MyLocalID);
+			SendDataToServer(socket_fd, feedback, strlen(feedback));
+			LogoutClient(socket_fd);
+			sleep(1);
+		}
+
 		evt.m_Params.m_Aisle = fd;
 		evt.m_Params.m_Type = CMDInfo.m_Type;
 		evt.m_Params.m_Body.m_Id = (int)CMDInfo.m_Addr[0];
@@ -309,12 +345,66 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 	
 	pthread_attr_destroy(&attr);
 
-	while (!(REMOTE_CMD_START_FW_DOWNLOAD_OK & g_RemoteCmdFlag))
+	while (!(REMOTE_CMD_START_FW_DOWNLOAD_FLAG & g_RemoteCmdFlag))
 	{
 		Delay_ms(5);
 	}
 
-	g_RemoteCmdFlag ^= REMOTE_CMD_START_FW_DOWNLOAD_OK;
+	g_RemoteCmdFlag ^= REMOTE_CMD_START_FW_DOWNLOAD_FLAG;
+
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: RemoteCmd_ConfigMidParam
+**Description	: configure middleware(mid id, slaves address, server ip and so on).
+**Parameters	: fd - in.
+				: CMDInfo - in.
+**Return		: 0
+***********************************************************************/
+static int RemoteCmd_ConfigMidParam(int fd, RemoteCmdInfo CMDInfo)
+{
+
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: RemoteCmd_ConfigMidwareTime
+**Description	: configure middleware time to sync server time.
+**Parameters	: fd - in.
+				: CMDInfo - in.
+**Return		: 0
+***********************************************************************/
+static int RemoteCmd_ConfigMidwareTime(int fd, RemoteCmdInfo CMDInfo)
+{
+	struct tm set_tm;
+	struct timeval tv;
+	time_t set_time;
+	int year = 0;
+
+	year = (int)CMDInfo.m_Data[5];
+	year <<= 8;
+	year |= (int)CMDInfo.m_Data[6];
+	
+	set_tm.tm_year = year;
+	set_tm.tm_mon = (int)CMDInfo.m_Data[3] - 1;
+	set_tm.tm_mday = (int)CMDInfo.m_Data[4];
+	set_tm.tm_hour = (int)CMDInfo.m_Data[0];
+	set_tm.tm_min = (int)CMDInfo.m_Data[1];
+	set_tm.tm_sec = (int)CMDInfo.m_Data[2];
+	
+	set_time = mktime(&set_tm);
+	
+	tv.tv_sec = set_time;
+	tv.tv_usec = 0;
+	
+	if (settimeofday(&tv, (struct timezone *)0))
+	{
+		printf("%s:sync server time failed!\n", __FUNCTION__);
+		return 0;
+	}
+
+	g_RemoteCmdFlag |= REMOTE_CMD_SYNC_SERVER_TIME_FLAG;
 
 	return 0;
 }
@@ -344,21 +434,6 @@ static int RemoteCMD_ConfigSlave(int fd, RemoteCmdInfo CMDInfo)
 }
 
 /***********************************************************************
-**Function Name	: RemoteCMD_ConfigSlave
-**Description	: search slave status.
-**Parameters	: fd - in.
-				: CMDInfo - in.
-**Return		: 0
-***********************************************************************/
-static int RemoteCMD_SearchStatus(int fd, RemoteCmdInfo CMDInfo)
-{
-
-	//--- do here ---//
-	
-	return 0;
-}
-
-/***********************************************************************
 **Function Name	: RemoteCMD_GetSlaveData
 **Description	: get slave data.
 **Parameters	: fd - in.
@@ -367,8 +442,20 @@ static int RemoteCMD_SearchStatus(int fd, RemoteCmdInfo CMDInfo)
 ***********************************************************************/
 static int 	RemoteCMD_GetSlaveData(int fd, RemoteCmdInfo CMDInfo)
 {
+	AsyncEvent evt = {0};
+
 	//--- do here ---//
+
+	evt.m_Action = SendDataReq;
+	evt.m_Params.m_Aisle = fd;
+	evt.m_Params.m_Type = CMDInfo.m_Type;
+
+	memcpy(&evt.m_Params.m_Body.m_RemoteCmd, &CMDInfo, sizeof(RemoteCmdInfo));
+
+	evt.m_Priority = LEVEL_0;
 	
+	AddAsyncEvent(evt);	
+
 	return 0;
 }
 
@@ -425,29 +512,32 @@ int ProRemoteCmd(int fd, char *pCmd)
 		json_object_put(my_cmd);
 
 		//--- add event ---//
-		if (REMOTE_CMD_NEW_FW_NOTICE == cmd_info.m_Type)
+		switch (cmd_info.m_Type)
 		{
-			L_DEBUG("UPDATE CMD\n");
-			RemoteCMD_NewFwNotice(fd, cmd_info);	
-			
-			return 0;	
+			case REMOTE_CMD_NEW_FW_NOTICE:
+				L_DEBUG("UPDATE CMD\n");
+				RemoteCMD_NewFwNotice(fd, cmd_info);
+				return 0;
+			case RMMOTE_CMD_CONFIG_MID_PARAM:
+				L_DEBUG("CONFIG MID PARAM\n");
+				RemoteCmd_ConfigMidParam(fd, cmd_info);
+				return 0;
+			case REMOTE_CMD_CONFIG_MID_TIME:
+				L_DEBUG("CONFIG MID TIME\n");
+				RemoteCmd_ConfigMidwareTime(fd, cmd_info);
+				return 0;
+			default:
+				break;
 		}
 		
-		if (2 > cmd_info.m_DataLen) //-- request get data handle --//
-		{
-			if (REMOTE_CMD_SEARCH_SLAVE_STATUS == cmd_info.m_Type)
-			{
-				L_DEBUG("SEARCH SLAVES STATUS CMD\n");
-				RemoteCMD_SearchStatus(fd, cmd_info);
-				
-				return 0;			
-			}
-			
+		if (2 > cmd_info.m_DataLen) //-- request get slave data handle --//
+		{	
+			L_DEBUG("GET SLAVES DATA(%d) CMD\n", cmd_info.m_Type);
 			RemoteCMD_GetSlaveData(fd, cmd_info);
 		}
-		else if (2 <= cmd_info.m_DataLen)	//-- request modify data handle --//
+		else if (2 <= cmd_info.m_DataLen)	//-- request modify slave data handle --//
 		{
-			L_DEBUG("CONFIG SLAVES CMD\n");
+			L_DEBUG("CONFIG SLAVES DATA(%d) CMD\n", cmd_info.m_Type);
 			RemoteCMD_ConfigSlave(fd, cmd_info);		
 		}
 	}

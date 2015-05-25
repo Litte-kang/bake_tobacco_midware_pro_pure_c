@@ -4,24 +4,14 @@
 #include "MyPublicFunction.h"
 #include "RemoteCmds.h"
 #include "uart_api.h"
+#include "sqlite3.h"
 
 //------------------------------------------------------MACRO------------------------------------------------//
 
 #define SLAVES_ADDR_CONF			"./conf/slaves_addr/aisle_"
 
-#define DATA_FILE					"./data/data_"
-
-
-/****************************************************************
-*					communication protocol(server)		        *
-*****************************************************************/
-
 #define UPLOAD_SER_SIZE		256
-
-/****************************************************************
-*				end communication protocol(server)		        *
-*****************************************************************/
-
+#define AISLE_LOG_DATA_SIZE	100 * 1024
 
 #define PRO_DATA_OK_FLAG		0x01
 #define PRO_DATA_FAILED_FLAG	0x02
@@ -35,9 +25,16 @@
 typedef struct _FWInformation
 {
 	int 	m_SectionSum;
-	short 	m_LastSectionSize;
+	int 	m_LastSectionSize;
 	int 	m_Version;
 }FWInformation;
+
+typedef struct _AisleLogData
+{
+	int 	m_CurPos;
+	int 	m_AvailableSpace;
+	char	m_Data[AISLE_LOG_DATA_SIZE];
+}AisleLogData;
 
 typedef struct _AisleInfo
 {
@@ -69,6 +66,14 @@ First used			: /
 */
 extern char g_IsFullMode;
 
+/*
+Description			: save some data from aisle.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+extern AisleLogData g_AisleLogData;
+
 //-------------------------------------DECLARATION VARIABLE END-------------------------------------------//
 
 //--------------------------------------------------DECLARATION FUNCTION----------------------------------------//
@@ -85,7 +90,6 @@ extern void 			SetAisleFlag(int aisle, unsigned char flag);
 extern unsigned char	GetAisleFlag(int aisle);
 extern int 				GetSlavePositionOnTab(int addr, int *pPos ,int aisle);
 extern int				GetSlaveAddrByPos(int pos, int aisle);
-extern void				SaveTmpData(unsigned char *pData);
 
 //-----------------------------------------------DECLARATION FUNCTION END--------------------------------------------//
 

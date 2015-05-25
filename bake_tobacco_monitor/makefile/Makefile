@@ -9,7 +9,9 @@ OBJS = 	main.o \
 		RemoteCmds.o \
 		AsyncEvents.o \
 		EventActionSet.o \
-		xProtocol.o
+		xProtocol.o \
+		mongoose.o \
+		HttpServer.o
 
 HOST_CC = gcc
 ARM_CC = arm-linux-gcc
@@ -19,10 +21,10 @@ CC = ${MIPS_CC}
 APP_NAME = Bake_Tobacco_Monitor
 
 ${APP_NAME}:${OBJS}
-	${CC} -o ../out/${APP_NAME} $^ -lpthread -ldl -ljson -std=c99 -L/usr/local/mips/json-C-0.9/lib
+	${CC} -o ../out/${APP_NAME} $^ -lpthread -ldl -ljson -lsqlite3 -std=c99 -L/usr/local/mips/json-C-0.9/lib -L/usr/local/mips/sqlite-3.7.14/lib
 		
 %.o:${SRC}%.c
-	${CC} -c ${INCS} $< -o $@ -I/usr/local/mips/json-C-0.9/include/json
+	${CC} -c ${INCS} $< -o $@ -I/usr/local/mips/json-C-0.9/include/json -I/usr/local/mips/sqlite-3.7.14/include
 
 .PHONY : clean
 clean :

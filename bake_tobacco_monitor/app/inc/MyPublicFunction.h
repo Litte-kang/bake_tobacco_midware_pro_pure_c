@@ -3,6 +3,7 @@
 
 #include <sys/time.h>
 #include "MyClientSocket.h"
+#include "sqlite3.h"
 
 #ifndef NULL
 #define NULL (void*)0
@@ -24,11 +25,12 @@
 
 #define MAX_SLAVE_SUM		64	//-- the max number of connecting slaves a aisle --//
 #define SLAVE_ADDR_LEN		2	//-- the length of slave address --//
+#define INVAILD_SLAVE_ADDR	65535
 
+#define SER_ADDR			"./conf/ser_ip"
 #define MID_ID_PATH			"./conf/mid_id"
-
-#define FW_0_VER			"./fws/fw_0/0.version"
-#define FW_1_VER			"./fws/fw_1/1.version"
+#define AISLE_DATA_DB		"./data/transfer_station.db"
+#define AISLE_DATA_TABLE	"aisle_data_"
 
 //-----------------------------------MACRO END-------------------------------------//
 
@@ -64,14 +66,20 @@ First used			: AppInit();
 extern CNetParameter g_Param8124;
 
 /*
-
 Description			: connect server parameter.
-
 Default value		: /
 The scope of value	: /
 First used			: AppInit();
 */
 extern CNetParameter g_Param8125;
+
+/*
+Description			: sqlite db for aisle data.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+extern sqlite3 *g_PSqlite3Db;
 
 //-------------------------------------DECLARATION VARIABLE END-------------------------------------------//
 
