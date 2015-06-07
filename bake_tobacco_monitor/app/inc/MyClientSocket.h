@@ -38,7 +38,7 @@ typedef struct _CNetParameter
 extern int 		ConnectServer(unsigned int times, CNetParameter param);
 extern int 		RecDataFromServer(int fd, unsigned char *pBuff, unsigned int len, int timeout);
 extern int 		SendDataToServer(int fd, unsigned char *pBuff, unsigned int len);
-extern void 	LogoutClient(int fd);
+extern void 	LogoutClient(int fd, CNetParameter param);
 
 //---------------------------end-------------------------------//
 

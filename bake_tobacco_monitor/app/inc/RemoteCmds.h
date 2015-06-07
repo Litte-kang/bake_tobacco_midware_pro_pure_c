@@ -14,7 +14,7 @@
 
 //--- cmd flag ---//
 #define REMOTE_CMD_NULL_FLAG					0x00
-#define REMOTE_CMD_START_FW_DOWNLOAD_FLAG	0x01
+#define REMOTE_CMD_START_FW_DOWNLOAD_FLAG		0x01
 #define REMOTE_CMD_SYNC_SERVER_TIME_FLAG		0x02
 
 //---------------------------end---------------------------//
@@ -24,10 +24,10 @@
 
 typedef struct _RemoteCmdInfo
 {
-    int		m_Type;
-    char	m_Addr[2];
-    char	m_Data[100];
-    int		m_DataLen;
+    int				m_Type;
+    unsigned char	m_Addr[2];
+    unsigned char	m_Data[100];
+    int				m_DataLen;
 }RemoteCmdInfo;
 
 //---------------------------end---------------------------//
@@ -49,6 +49,7 @@ char g_RemoteCmdFlag;
 //-------------------Declaration funciton for--------------//
 
 extern int		ProRemoteCmd(int fd, char *pCmdInfo);
+extern int	 	WriteRemoteCmdFeedbacksToLocal(int type, unsigned char *pData, unsigned int len, int aisle);
 
 //---------------------------end---------------------------//
 

@@ -4,7 +4,8 @@
 
 //----------------------Define macro for-------------------//
 
-
+#define EVT_ACTION_NULL_FLAG		0x00
+#define EVT_ACTION_SYNC_TIME_FLAG	0x01
 
 //---------------------------end---------------------------//
 
@@ -16,6 +17,13 @@
 
 //-----------------Declaration variable for----------------//
 
+/*
+Description			: event action flags.
+Default value		: EVT_ACTION_NULL_FLAG.
+The scope of value	: /.
+First used			: /
+*/
+extern char g_EvtActionFlag;
 
 //---------------------------end---------------------------//
 
@@ -24,6 +32,7 @@
 
 extern void		SendDataReq(int arg);
 extern void 	SendConfigData(int arg);
+extern void 	SendTimeData(int arg);
 extern void		SendFwUpdateNotice(int arg);
 
 //---------------------------end---------------------------//

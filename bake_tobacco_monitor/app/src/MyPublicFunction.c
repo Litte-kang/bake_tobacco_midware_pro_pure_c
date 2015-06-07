@@ -1,8 +1,9 @@
 #include <fcntl.h>
+#include <stdio.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include "MyPublicFunction.h"
-#include "stdio.h"
 
 //--------------------------------------DECLARATION VARIABLE--------------------------------//
 
@@ -184,5 +185,45 @@ int ReadFileInfo(const char *pFileName, int *pInfo)
 	return 0;
 }
 
+/***********************************************************************
+**Function Name	: l_debug
+**Description	: print debug information or save it.
+**Parameters	: pLogPath - in.
+				: fmt - format.
+				: param - in.
+**Return		: 0 - ok, -1 - failed.
+***********************************************************************/
+void l_debug(const char *pLogPath, char *fmt,...)
+{
+	char str[1024] 							= {0};
+  	va_list ap;
+  	FILE *fp 								= NULL;
+  	time_t now_time 						= {0};
+	struct tm *p_now_time 					= NULL;
 
+  	va_start(ap, fmt);
+  	vsnprintf(str, 250, fmt, ap);
+  	va_end(ap);
+
+	printf("%s", str);
+	
+	if (NULL != pLogPath)	//-- save debug information --//
+	{		
+		time(&now_time);
+		p_now_time = localtime(&now_time);
+
+		fp = fopen(pLogPath, "a");
+		if (NULL == fp)
+		{
+			printf("%s:open %s!\n", __FUNCTION__, pLogPath);
+			return;
+		}
+		
+		fprintf(fp, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d %s", (p_now_time->tm_year + 1900),(p_now_time->tm_mon + 1),p_now_time->tm_mday,p_now_time->tm_hour,p_now_time->tm_min,p_now_time->tm_sec, str);
+		
+		fclose(fp);
+	}
+	
+	return;
+}
 

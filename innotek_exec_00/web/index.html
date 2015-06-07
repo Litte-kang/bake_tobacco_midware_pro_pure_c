@@ -47,9 +47,6 @@
 	&nbsp;
     <input name="midIdSubmitButton" type="button" class="MYBUTTON" id="midIdSubmitButton" onClick="buttonEvt(this)" value="提交" /> </td>
 </tr>
-<tr>
-  <td height="30" colspan="2" align="left" valign="middle"><span class="STYLE1">注：修改中间件ID后需重启后才能生效</span></td>
-</tr>
 </table>
 </br>
 <table width="591" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
@@ -110,6 +107,7 @@ function buttonEvt(btn)
 	var number = /^[0-9]/;
 	var str = /^[0-9a-zA-Z]/;
 	var tmp;
+	var res = "";
 	var jsonStr = "";
 		
 	if ("addrSumbitButton" == btn.id)
@@ -120,10 +118,14 @@ function buttonEvt(btn)
 			document.getElementById("address").value = "";
 			
 			jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":1' + "," + '"addresses":' + "[" + newSlaveAddrsArray + "]" + "}";
-			sendHttpReq("POST", "slave_addrs", jsonStr);
+			
+			res = sendHttpReq("POST", "slave_addrs", jsonStr);
 			
 			newSlaveAddrsArray.splice(0, newSlaveAddrsArray.length);
-			newSlaveAddrs = "";			
+			newSlaveAddrs = "";	
+
+			alert(res);	
+			initPage();	
 		}
 	}
 	else if ("midIdSubmitButton" == btn.id)
@@ -141,9 +143,11 @@ function buttonEvt(btn)
 			'"midId":' + '"' + document.getElementById("midId").value + '"' + ',' +
 			'"midIdCh":' + '"' + document.getElementById("midId_ch").value + '"' 
 			+ "}";
-			sendHttpReq("POST", "mid_id", jsonStr);
-			document.getElementById("midId").value = "";
-			document.getElementById("midId_ch").value = "";
+			
+			res = sendHttpReq("POST", "mid_id", jsonStr);
+
+			alert(res);
+			initPage();
 		}	
 	}
 	else if ("addButton" == btn.id)
@@ -182,6 +186,10 @@ function buttonEvt(btn)
 				alert("您的 " + slaveAddr.value + " 自控仪地址含有非数字，请重新输入！");	
 				document.getElementById("address").value = "";
 			}
+		}
+		else
+		{
+			alert("已达到最大注册数量");
 		}		
 	}	
 	else if ("delButton" == btn.id)
@@ -200,7 +208,11 @@ function buttonEvt(btn)
 				else
 				{
 					jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":0' + "," + '"addresses":' + "[" + Number(tmp) + "]" + "}";
-					sendHttpReq("POST", "slave_addrs", jsonStr);
+					
+					res = sendHttpReq("POST", "slave_addrs", jsonStr);
+
+					alert(res);
+					initPage();
 				}
 				
 				document.getElementById("address").value = "";

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <time.h>
 #include "MyClientSocket.h"
 #include "xProtocol.h"
 #include "AsyncEvents.h"
@@ -18,7 +19,7 @@ static void 	UpdateAckTypeEvent(int aisle, unsigned char *pData, unsigned int le
 static void 	CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len);
 static int		UpdateSlaveFw(AisleInfo *pInfo);		
 static int 		WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigned int len, int aisle);
-static int 		GetAislePositionOnTab(int aisle);
+
 
 //------------------------------------DECLARATION FUNCIONT END-------------------------------//
 
@@ -67,19 +68,39 @@ static AisleInfo g_AisleInfo[USER_COM_SIZE];
 ***********************************************************************/
 void AisleManageInit()
 {
-	unsigned int slave_sum 		= 0;
-	int slave_addr 				= 0;
-	char slaves_addr_conf[30] 	= {0};
+	unsigned int slave_sum 							= 0;
+	int slave_addr 									= 0;
+	char slaves_addr_conf[70] 	= {0};
 	int i 						= 0;
 	int n 						= 0;
+	int res 					= 0;
 	FILE *fp 					= NULL;
+    char *p_errmsg 				= NULL;
 
 	g_AisleLogData.m_CurPos = 0;
 	g_AisleLogData.m_AvailableSpace = AISLE_LOG_DATA_SIZE;
+	memset(g_AisleLogData.m_Data, 0, AISLE_LOG_DATA_SIZE);
 
 	//--- get aisle configration information ---//	
 	for (i = 0; i < USER_COM_SIZE; ++i)
 	{
+		//--- create a table ---/
+		sprintf(slaves_addr_conf, "CREATE TABLE %s%.2d(data VARCHAR(%d));", AISLE_DATA_TABLE, i, UPLOAD_SER_SIZE);
+
+		res = sqlite3_exec(g_PSqlite3Db, slaves_addr_conf, NULL, NULL, &p_errmsg);
+
+		sprintf(slaves_addr_conf, "table %s%.2d already exists", AISLE_DATA_TABLE, i);
+
+		if (res && strcmp(p_errmsg, slaves_addr_conf))
+		{
+			l_debug(ERR_LOG,"sqlite3 create %s%.2d failed! exit system\n", AISLE_DATA_TABLE, i);
+			exit(1);
+		}
+		else if (!res && !p_errmsg)
+		{
+			L_DEBUG("sqlite3 create %s%.2d successfull!\n", AISLE_DATA_TABLE, i);
+		}
+
 		//--- get slave address ---//
 		memset(g_AisleInfo[i].m_SlavesAddrTab, 0xff, (MAX_SLAVE_SUM * SLAVE_ADDR_LEN));
 		
@@ -88,7 +109,7 @@ void AisleManageInit()
 		fp = fopen(slaves_addr_conf, "r");
 		if (NULL == fp)
 		{
-			printf("%s:get slaves address failed(%s)!\n", __FUNCTION__, slaves_addr_conf);
+			l_debug(ERR_LOG, "%s:get slaves address failed(%s)! exit system\n", __FUNCTION__, slaves_addr_conf);
 			exit(1);
 		}
 		
@@ -97,13 +118,13 @@ void AisleManageInit()
 		{
 			if (0 >= fscanf(fp, "%d\n", &slave_addr))
 			{
-				printf("slave address is empty!\n");
+				l_debug(ERR_LOG, "slave address is empty!\n");
 				break;
 			}
 			
 			if (INVAILD_SLAVE_ADDR == slave_addr)
 			{
-				printf("a invaild slave addr!\n");
+				l_debug(ERR_LOG, "a invaild slave addr!\n");
 				continue;
 			}
 			
@@ -144,27 +165,6 @@ static int	UpdateSlaveFw(AisleInfo *pInfo)
 }
 
 /***********************************************************************
-**Function Name	: GetAisleTabPosition
-**Description	: get aisle position in g_AisleInfo.
-**Parameter		: pData - in.
-**Return		: -1 - not exist aisle in g_AisleInfo, i - position.
-***********************************************************************/
-static int GetAislePositionOnTab(int aisle)
-{
-	int i = 0;
-
-	for (i = 0; i < USER_COM_SIZE; ++i)
-	{
-		if (g_AisleInfo[i].m_Aisle == aisle)
-		{
-			return i;
-		}
-	}
-
-	return -1;
-}
-
-/***********************************************************************
 **Function Name	: AlertTypeEvent
 **Description	: process alert event.
 **Parameter		: aisle - in.
@@ -191,7 +191,7 @@ static void AlertTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	
 	L_DEBUG("slave(%.5d) alert ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 
-	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, aisle);
+	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, pos);
 	WriteDataToLocal(data_file_name, pData, len, aisle);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;	
@@ -286,7 +286,7 @@ static void StatusTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 	
 	L_DEBUG("slave(%.5d) status ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 
-	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, aisle);
+	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, pos);
 	WriteDataToLocal(data_file_name, pData, len, aisle);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;	
@@ -414,7 +414,7 @@ static void CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len)
 	
 	L_DEBUG("slave(%.5d) curve ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 
-	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, aisle);
+	sprintf(data_file_name, "%s%.2d", AISLE_DATA_TABLE, pos);
 	WriteDataToLocal(data_file_name, pData, len, aisle);
 	
 	g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;		
@@ -435,9 +435,7 @@ static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigne
 	unsigned char upload_buff[UPLOAD_SER_SIZE] 	= {0};
 	unsigned char sql[UPLOAD_SER_SIZE + 30] 	= {0};
 	unsigned int slave_addr 					= 0;
-	char is_set_slave_time 						= 0;
-	time_t now_time 							= {0};
-	struct tm *p_now_time 						= NULL;
+	char *p_errmsg								= NULL;
 	AsyncEvent evt 								= {0};
 
 	
@@ -452,7 +450,23 @@ static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigne
 			{
 				if (pData[11] & 0x80)
 				{
-					is_set_slave_time = 1;
+					if (!(g_EvtActionFlag & EVT_ACTION_SYNC_TIME_FLAG) && (REMOTE_CMD_SYNC_SERVER_TIME_FLAG & g_RemoteCmdFlag))
+					{
+						evt.m_Action = SendTimeData;
+
+						evt.m_Params.m_Type = CONF_TIME_DATA_TYPE;	
+						evt.m_Params.m_Aisle = aisle;
+						evt.m_Params.m_Body.m_Id = 0x0000ffff;
+
+						evt.m_Priority = LEVEL_1;
+
+						if(!AddAsyncEvent(evt))
+						{
+							L_DEBUG("-------config slave time--------\n");
+							g_EvtActionFlag |=  EVT_ACTION_SYNC_TIME_FLAG;
+						}
+					}
+
 					pData[11] &= 0x7f;		//-- set 0 eight bit --// 
 				}
 
@@ -495,14 +509,12 @@ static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigne
 	
 	tmp = strlen(upload_buff);
 	
-	L_DEBUG("json(%d):%s\n", tmp, upload_buff);
-
 	//--- do here(write db) ---//
 	sprintf(sql, "INSERT INTO '%s' VALUES('%s');", pFileName, upload_buff);
 
 	if (sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL))
 	{
-		printf("%s:insert data failed!\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:insert data failed!\n", __FUNCTION__);
 	}
 	else
 	{
@@ -510,43 +522,9 @@ static int WriteDataToLocal(const char *pFileName, unsigned char *pData, unsigne
 	}
 
 	//--- write log ---//
-	memcpy(&upload_buff[tmp], "</br>", 5);
+	memcpy(&upload_buff[tmp], "</br>\n", 6);
 
-	slave_addr = (g_AisleLogData.m_AvailableSpace > (tmp + 5)) ? g_AisleLogData.m_CurPos : 0;
-
-	if (0 == slave_addr)
-	{
-		memcpy(g_AisleLogData.m_Data, 0, AISLE_LOG_DATA_SIZE);
-	}
-
-	memcpy(&g_AisleLogData.m_Data[slave_addr], upload_buff, (tmp + 5));
-
-	if (is_set_slave_time && (REMOTE_CMD_SYNC_SERVER_TIME_FLAG & g_RemoteCmdFlag))
-	{
-		time(&now_time);
-		p_now_time = localtime(&now_time);
-		
-		evt.m_Action = SendConfigData;
-
-		evt.m_Params.m_Type = CONF_TIME_DATA_TYPE;
-		
-		evt.m_Params.m_Aisle = aisle;
-
-		evt.m_Params.m_Body.m_RemoteCmd.m_Type = CONF_TIME_DATA_TYPE;
-
-		evt.m_Params.m_Body.m_RemoteCmd.m_Addr[0] = 0xff;
-		evt.m_Params.m_Body.m_RemoteCmd.m_Addr[1] = 0xff;
-
-		evt.m_Params.m_Body.m_RemoteCmd.m_Data[0] = (unsigned char)(p_now_time->tm_year % 100);
-		evt.m_Params.m_Body.m_RemoteCmd.m_Data[1] = (unsigned char)(p_now_time->tm_mon + 1);
-		evt.m_Params.m_Body.m_RemoteCmd.m_Data[2] = (unsigned char)p_now_time->tm_mday;
-		evt.m_Params.m_Body.m_RemoteCmd.m_Data[3] = (unsigned char)p_now_time->tm_hour;
-		evt.m_Params.m_Body.m_RemoteCmd.m_Data[4] = (unsigned char)p_now_time->tm_min;
-
-		evt.m_Priority = LEVEL_0;
-
-		AddAsyncEvent(evt);
-	}
+	SaveAisleLog(upload_buff);
 
 	return tmp;
 }
@@ -650,7 +628,7 @@ int IsFWUpdateSuccess(int aisle)
 
 	if (-1 == res)
 	{
-		printf("error aisle\n");
+		l_debug(ERR_LOG, "error aisle\n");
 		return -1;
 	}
 
@@ -671,7 +649,7 @@ void ClearFwCount(int aisle)
 	
 	if (-1 == res)
 	{
-		printf("error aisle\n");
+		l_debug(ERR_LOG, "error aisle\n");
 		
 		return;
 	}
@@ -693,7 +671,7 @@ int GetCurFwCount(int aisle)
 	
 	if (-1 == res)
 	{
-		printf("error aisle\n");
+		l_debug(ERR_LOG, "error aisle\n");
 		
 		return;
 	}	
@@ -716,7 +694,7 @@ void SetAisleFlag(int aisle, unsigned char flag)
 	
 	if (-1 == res)
 	{
-		printf("error aisle\n");
+		l_debug(ERR_LOG, "error aisle\n");
 		return;
 	}
 	
@@ -745,7 +723,7 @@ void SetCurSlavePositionOnTab(int aisle, unsigned int position)
 	
 	if (-1 == res)
 	{
-		printf("SetCurCommuInfoTabPosition:error aisle\n");
+		l_debug(ERR_LOG, "SetCurCommuInfoTabPosition:error aisle\n");
 		return;
 	}
 	
@@ -766,7 +744,7 @@ unsigned int GetCurSlavePositionOnTab(int aisle)
 	
 	if (-1 == res)
 	{
-		printf("GetCurCommuInfoTabPosition:error aisle\n");
+		l_debug(ERR_LOG, "GetCurCommuInfoTabPosition:error aisle\n");
 		return -1;
 	}
 	
@@ -873,9 +851,58 @@ int	GetSlaveAddrByPos(int pos, int aisle)
 	return address;
 }
 
+/***********************************************************************
+**Function Name	: SaveAisleLog
+**Description	: write log to log buff.
+**Parameter		: pLogs - in.
+**Return		: none.
+***********************************************************************/
+void SaveAisleLog(unsigned char *pLogs)
+{
+	int pos = 0;
+	int len = 0;
 
+	len = strlen(pLogs);
 
+	pos  = (g_AisleLogData.m_AvailableSpace > len) ? (g_AisleLogData.m_CurPos + 1) : 0;	
 
+	if (0 == pos)
+	{
+		memset(g_AisleLogData.m_Data, 0, AISLE_LOG_DATA_SIZE);
+		g_AisleLogData.m_CurPos = 0;
+		g_AisleLogData.m_AvailableSpace = AISLE_LOG_DATA_SIZE;
+	}
+	else
+	{
+		pos--;
+	}
+
+	memcpy(&g_AisleLogData.m_Data[pos], pLogs, len);
+
+	g_AisleLogData.m_CurPos += len;
+	g_AisleLogData.m_AvailableSpace -= len; 
+}
+
+/***********************************************************************
+**Function Name	: GetAisleTabPosition
+**Description	: get aisle position in g_AisleInfo.
+**Parameter		: pData - in.
+**Return		: -1 - not exist aisle in g_AisleInfo, i - position.
+***********************************************************************/
+int GetAislePositionOnTab(int aisle)
+{
+	int i = 0;
+
+	for (i = 0; i < USER_COM_SIZE; ++i)
+	{
+		if (g_AisleInfo[i].m_Aisle == aisle)
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
 
 
 

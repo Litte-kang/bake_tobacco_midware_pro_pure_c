@@ -9,7 +9,7 @@
 #define		HOST_COM_PORT0		1
 #define     HOST_COM_PORT_SIZE	1
 
-#define		TARGET_COM_PORT0		1
+#define		TARGET_COM_PORT0		2
 //#define 	TARGET_COM_PORT1		3
 #define		TARGET_COM_PORT_SIZE	1
 

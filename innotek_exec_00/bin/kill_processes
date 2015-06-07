@@ -1,0 +1,13 @@
+#!/bin/ash
+
+pid=`ps a | grep Bake_Tobacco_Monitor | grep -v grep | awk '{print $1}'`
+
+echo "kill Bake_Tobacco_Monitor"
+echo "kill -9 "$pid
+kill -9 $pid
+
+pid=`ps a | grep watchmen | grep -v grep | awk '{print $1}'`
+
+echo "kill watchmen"
+echo "kill -9 "$pid
+kill -9 $pid

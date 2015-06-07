@@ -31,9 +31,9 @@ typedef struct _FWInformation
 
 typedef struct _AisleLogData
 {
-	int 	m_CurPos;
-	int 	m_AvailableSpace;
-	char	m_Data[AISLE_LOG_DATA_SIZE];
+	int 			m_CurPos;
+	int 			m_AvailableSpace;
+	unsigned char	m_Data[AISLE_LOG_DATA_SIZE];
 }AisleLogData;
 
 typedef struct _AisleInfo
@@ -90,6 +90,8 @@ extern void 			SetAisleFlag(int aisle, unsigned char flag);
 extern unsigned char	GetAisleFlag(int aisle);
 extern int 				GetSlavePositionOnTab(int addr, int *pPos ,int aisle);
 extern int				GetSlaveAddrByPos(int pos, int aisle);
+extern void 			SaveAisleLog(unsigned char *pLogs);
+extern int 				GetAislePositionOnTab(int aisle);
 
 //-----------------------------------------------DECLARATION FUNCTION END--------------------------------------------//
 

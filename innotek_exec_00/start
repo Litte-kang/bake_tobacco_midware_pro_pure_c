@@ -1,39 +1,58 @@
 #!/bin/ash
 
-echo "{tmp.log}</br>" > /tmp/tmp.log
-
-new_ver=`cat ./fws/fw_100/100.version`
-cur_ver=`cat ./conf/version`
-
-new_ver=`echo $new_ver | awk '{print $1}'`
-
-echo $new_ver
-echo $cur_ver
+date >> ./data/error.log
 
 chmod 777 ./bin/Bake_Tobacco_Monitor
 chmod 777 ./bin/download_fw
+chmod 777 ./bin/version_parse
 
-if [ "$new_ver" -gt "$cur_ver" ]
-then
-	echo "update mid fw"
-	
-	cd ./fws/fw_100
-	
-	cp 100.$new_ver.fw 100.tar
-	tar -xvf 100.tar
-	rm 100.tar
-	
-	cd ./100
-	/bin/sh update	
-	
-	cd ../../../
-	
-	echo $new_ver > ./conf/version
-fi
+new_ver=`./bin/version_parse ./fws/fw_100/100.version`
+res0=$?
+cur_ver=`./bin/version_parse ./conf/version`
+res1=$?
 
-/bin/sh kill_processes
+echo "new version is "$new_ver $res0
+echo "cur version is "$cur_ver $res1
 
-sleep 1
+while true
+do
+	if [ $res0 != 0 ]
+	then
+		break
+	fi
+
+	if [ $res1 != 0 ]
+	then
+		break
+	fi
+
+	if [ "$new_ver" -gt "$cur_ver" ]
+	then
+		echo "update mid fw"
+		
+		cd ./fws/fw_100
+		
+		cp 100.$new_ver.fw 100.tar
+		tar -xvf 100.tar
+		rm 100.tar
+		
+		cd ./100
+		/bin/sh update	
+		
+		cd ../../../
+		
+		echo $new_ver > ./conf/version
+		
+		break
+	else
+		break
+	fi
+
+done
+
+/bin/sh ./bin/kill_processes
 
 echo "start monitor"
 ./bin/Bake_Tobacco_Monitor &
+
+/bin/sh ./bin/watchmen Bake_Tobacco_Monitor &

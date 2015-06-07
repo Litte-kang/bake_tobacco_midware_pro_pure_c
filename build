@@ -2,10 +2,27 @@
 
 arg=$1
 
-export PATH=/usr/local/mips/crosstool-4.6/bin:$PATH
-
 while true
 do
+
+if [ "$arg" == 'arm' ]
+then
+	./configure arm
+	break;
+fi
+
+if [ "$arg" == 'mips' ]
+then
+	export PATH=/usr/local/mips/crosstool-4.6/bin:$PATH
+	./configure mips
+	break;
+fi
+
+if [ "$arg" == 'x86' ]
+then
+	./configure x86
+	break;
+fi
 
 if [ "$arg" == '' ]
 then
@@ -18,6 +35,9 @@ then
 	cd bake_tobacco_monitor/makefile
 	make
 	cp ../out/Bake_Tobacco_Monitor ../../innotek_exec_00/bin/
+	cd ../../version_parse
+	make
+	cp ./version_parse ../innotek_exec_00/bin/
 	break
 fi
 
@@ -26,6 +46,9 @@ then
 	cd bake_tobacco_monitor/makefile
 	make clean
 	rm -rf ../../innotek_exec_00/bin/Bake_Tobacco_Monitor
+	cd ../../version_parse
+	make clean
+	rm -rf ../innotek_exec_00/bin/version_parse
 	break
 fi
 

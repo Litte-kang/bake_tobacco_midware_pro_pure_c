@@ -1,0 +1,204 @@
+#!/bin/bash
+
+arg=$1
+
+echo "rm -rf Makefile"
+rm -rf ./bake_tobacco_monitor/makefile/Makefile
+rm -rf ./version_parse/Makefile
+
+echo "SRC = ../app/src/"
+echo "SRC = ../app/src/" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "INC = ../app/inc/"
+echo "INC = ../app/inc/" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "INCS = -I../app/inc"
+echo "INCS = -I../app/inc" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "OBJS = main.o uart_api.o AisleManage.o MyPublicFunction.o MyClientSocket.o RemoteCmds.o AsyncEvents.o EventActionSet.o xProtocol.o mongoose.o HttpServer.o"
+echo "OBJS = main.o uart_api.o AisleManage.o MyPublicFunction.o MyClientSocket.o RemoteCmds.o AsyncEvents.o EventActionSet.o xProtocol.o mongoose.o HttpServer.o" >> ./bake_tobacco_monitor/makefile/Makefile
+
+LIBPATH=""
+INCPATH=""
+
+echo ""
+echo "" >> ./bake_tobacco_monitor/makefile/Makefile
+
+if [ "$arg" == 'arm' ]
+then
+	LIBPATH="-L/usr/local/arm/json-c-0.9/lib -L/usr/local/arm/sqlite-3.7.14/lib"
+	INCPATH="-I/usr/local/arm/json-c-0.9/include/json -I/usr/local/arm/sqlite-3.7.14/include"
+	echo "CC = arm-linux-gcc"
+	echo "CC = arm-linux-gcc" >> ./bake_tobacco_monitor/makefile/Makefile
+	echo "CC = arm-linux-gcc" >> ./version_parse/Makefile
+fi
+
+if [ "$arg" == 'mips' ]
+then
+	LIBPATH="-L/usr/local/mips/json-C-0.9/lib -L/usr/local/mips/sqlite-3.7.14/lib"
+	INCPATH="-I/usr/local/mips/json-C-0.9/include/json -I/usr/local/mips/sqlite-3.7.14/include"
+	echo "CC = mipsel-openwrt-linux-gcc"
+	echo "CC = mipsel-openwrt-linux-gcc" >> ./bake_tobacco_monitor/makefile/Makefile
+	echo "CC = mipsel-openwrt-linux-gcc" >> ./version_parse/Makefile
+fi
+
+if [ "$arg" == 'x86' ]
+then
+	LIBPATH="-L/usr/local/lib"
+	INCPATH="-I/usr/local/include/json -I/usr/local/include"
+	echo "CC = gcc"
+	echo "CC = gcc" >> ./bake_tobacco_monitor/makefile/Makefile
+	echo "CC = gcc" >> ./version_parse/Makefile
+fi
+
+echo ""
+echo "" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "APP_NAME = Bake_Tobacco_Monitor"
+echo "APP_NAME = Bake_Tobacco_Monitor" >> ./bake_tobacco_monitor/makefile/Makefile
+echo ""
+echo "" >> ./bake_tobacco_monitor/makefile/Makefile
+
+echo "$""{APP_NAME}:""$""{OBJS}"
+echo "$""{APP_NAME}:""$""{OBJS}" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "	""$""{CC}" "-o ../out/""$""{APP_NAME} $^ -lpthread -ldl -ljson -lsqlite3 -std=c99 "$LIBPATH
+echo "	""$""{CC}" "-o ../out/""$""{APP_NAME} $^ -lpthread -ldl -ljson -lsqlite3 -std=c99 "$LIBPATH >> ./bake_tobacco_monitor/makefile/Makefile
+echo ""
+echo "" >> ./bake_tobacco_monitor/makefile/Makefile	
+
+echo "%.o:""$""{SRC}%.c"	
+echo "%.o:""$""{SRC}%.c" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "	""$""{CC} -c ""$""{INCS} $< -o ""$""@ "$INCPATH
+echo "	""$""{CC} -c ""$""{INCS} $< -o ""$""@ "$INCPATH >> ./bake_tobacco_monitor/makefile/Makefile
+echo ""
+echo "" >> ./bake_tobacco_monitor/makefile/Makefile
+
+echo ".PHONY : clean"
+echo ".PHONY : clean" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "clean :"
+echo "clean :" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "	-rm -f ""$""{OBJS} ../out/""$""{APP_NAME}"
+echo "	-rm -f ""$""{OBJS} ../out/""$""{APP_NAME}" >> ./bake_tobacco_monitor/makefile/Makefile
+echo "------------------------------------------------------------------------------------------------"
+echo ""
+echo "version_parse:version_parse.c"
+echo "version_parse:version_parse.c" >> ./version_parse/Makefile 
+echo "	""$""{CC}" "version_parse.c -o version_parse -ljson "$LIBPATH $INCPATH
+echo "	""$""{CC}" "version_parse.c -o version_parse -ljson "$LIBPATH $INCPATH >> ./version_parse/Makefile
+echo ""
+echo "" >> ./version_parse/Makefile
+echo ".PHONY : clean"
+echo ".PHONY : clean" >> ./version_parse/Makefile
+echo "clean :"
+echo "clean :" >> ./version_parse/Makefile
+echo "	-rm -f version_parse"
+echo "	-rm -f version_parse" >> ./version_parse/Makefile
+
+
+chmod 777 ./bake_tobacco_monitor/makefile/Makefile
+chmod 777 ./version_parse/Makefile
+
+#config informer Makefile
+
+echo "config MyPublicFunction.h"
+
+echo "#ifndef _MY_PUBLIC_FUNCTION_H_
+#define _MY_PUBLIC_FUNCTION_H_
+
+#include <sys/time.h>
+#include \"MyClientSocket.h\"
+#include \"sqlite3.h\"
+
+#ifndef NULL
+#define NULL (void*)0
+#endif
+
+#define PLATFORM	\"$arg\"
+
+//--------------------------------------MACRO---------------------------------------//
+
+#define TIME					struct timeval
+#define GET_SYS_CURRENT_TIME(n)	gettimeofday(&n, NULL)
+#define IS_TIMEOUT(n,m)			IsTimeout((int)&n, m)
+
+#define CONV_TO_INT(a,b,c,d) ((a << 24) | (b << 16) | (c << 8) | d)
+
+#if 1
+#define L_DEBUG	printf
+#else
+#define L_DEBUG
+#endif
+
+#define MAX_SLAVE_SUM		64	//-- the max number of connecting slaves a aisle --//
+#define SLAVE_ADDR_LEN		2	//-- the length of slave address --//
+#define INVAILD_SLAVE_ADDR	65535
+
+#define ERR_LOG				 \"./data/error.log\"
+#define SER_ADDR			 \"./conf/ser_ip\"
+#define MID_ID_PATH			 \"./conf/mid_id\"
+#define AISLE_DATA_DB		 \"./data/transfer_station.db\"
+#define AISLE_DATA_TABLE	 \"aisle_data_\"
+
+//-----------------------------------MACRO END-------------------------------------//
+
+//-------------------------------------------NEW TYPE------------------------------------//
+
+
+//-----------------------------------------NEW TYPE END-----------------------------------//
+
+//---------------------------------------DECLARATION VARIAVLE--------------------------------------------//
+
+/*
+Description			: middleware machine id
+Default value		: /
+The scope of value	: /
+First used			: AppInit()
+*/
+extern unsigned char g_MyLocalID[11];
+
+/*
+Description			: partner machine id(last bit)
+Default value		: 0
+The scope of value	: /
+First used			: AppInit()
+*/
+extern unsigned char g_PartnerId;
+
+/*
+Description			: connect server parameter.
+Default value		: /
+The scope of value	: /
+First used			: AppInit();
+*/
+extern CNetParameter g_Param8124;
+
+/*
+Description			: connect server parameter.
+Default value		: /
+The scope of value	: /
+First used			: AppInit();
+*/
+extern CNetParameter g_Param8125;
+
+/*
+Description			: sqlite db for aisle data.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+extern sqlite3 *g_PSqlite3Db;
+
+//-------------------------------------DECLARATION VARIABLE END-------------------------------------------//
+
+//--------------------------------------------------DECLARATION FUNCTION----------------------------------------//
+
+extern int 				IsTimeout(int StartTime, unsigned int threshold);
+extern void 			Delay_ms(unsigned int xms);
+extern unsigned char* 	MyStrStr(unsigned char *pSrc, unsigned int SrcLen, const unsigned char *pDst, unsigned int DstLen, unsigned int *len);
+extern int 				CreateCRC16CheckCode_1(unsigned char *pData, unsigned int len);
+extern int 				BackupAsciiData(const char *pFileName, unsigned char *pData);
+extern int 				ReadFileInfo(const char *pFileName, int *pInfo);
+extern void 			l_debug(const char *pLogPath, char *fmt,...);				
+
+//-----------------------------------------------DECLARATION FUNCTION END--------------------------------------------//
+
+#endif
+" > ./bake_tobacco_monitor/app/inc/MyPublicFunction.h
+
+chmod 777 ./bake_tobacco_monitor/app/inc/MyPublicFunction.h

@@ -24,7 +24,8 @@ int open_port(int com_port)
 	int fd;
 
 #if (COM_TYPE == GNR_COM)
-	char *dev[] = {"/dev/ttyS0", "/dev/ttyS1", "/dev/ttyS2", "/dev/ttyS3"};
+	//char *dev[] = {"/dev/ttyS0", "/dev/ttyS1", "/dev/ttyS2", "/dev/ttyS3"};
+	char *dev[] = {"/dev/ttyO0", "/dev/ttyO1", "/dev/ttyO2", "/dev/ttyO3"};
 #else
 	char *dev[] = {"/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyUSB2"}; 
 #endif

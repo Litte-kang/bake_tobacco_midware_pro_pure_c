@@ -1,0 +1,18 @@
+#!/bin/ash
+
+obj=$1
+
+echo "I will watch "./bin/$obj
+
+while true
+do
+	ps a | grep ./bin/$obj | grep -v grep > /dev/null
+	
+	if [ $? != 0 ]
+	then
+		#./bin/informer
+		/bin/sh start
+	fi
+	
+	sleep 5
+done

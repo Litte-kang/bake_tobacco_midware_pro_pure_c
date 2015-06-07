@@ -9,6 +9,8 @@
 #define NULL (void*)0
 #endif
 
+#define PLATFORM	"arm"
+
 //--------------------------------------MACRO---------------------------------------//
 
 #define TIME					struct timeval
@@ -27,10 +29,11 @@
 #define SLAVE_ADDR_LEN		2	//-- the length of slave address --//
 #define INVAILD_SLAVE_ADDR	65535
 
-#define SER_ADDR			"./conf/ser_ip"
-#define MID_ID_PATH			"./conf/mid_id"
-#define AISLE_DATA_DB		"./data/transfer_station.db"
-#define AISLE_DATA_TABLE	"aisle_data_"
+#define ERR_LOG				 "./data/error.log"
+#define SER_ADDR			 "./conf/ser_ip"
+#define MID_ID_PATH			 "./conf/mid_id"
+#define AISLE_DATA_DB		 "./data/transfer_station.db"
+#define AISLE_DATA_TABLE	 "aisle_data_"
 
 //-----------------------------------MACRO END-------------------------------------//
 
@@ -91,7 +94,9 @@ extern unsigned char* 	MyStrStr(unsigned char *pSrc, unsigned int SrcLen, const 
 extern int 				CreateCRC16CheckCode_1(unsigned char *pData, unsigned int len);
 extern int 				BackupAsciiData(const char *pFileName, unsigned char *pData);
 extern int 				ReadFileInfo(const char *pFileName, int *pInfo);
+extern void 			l_debug(const char *pLogPath, char *fmt,...);				
 
 //-----------------------------------------------DECLARATION FUNCTION END--------------------------------------------//
 
 #endif
+

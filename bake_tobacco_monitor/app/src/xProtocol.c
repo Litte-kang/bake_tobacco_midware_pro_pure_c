@@ -2,6 +2,7 @@
 #include <string.h>
 #include "xProtocol.h"
 #include "uart_api.h"
+#include "MyPublicFunction.h"
 
 //----------------------Define macro for-------------------//
 //---------------------------end---------------------------//
@@ -107,7 +108,7 @@ int SendFwToSlave(AisleInfo *pInfo)
 	
 	if (NULL == p_read_fw)
 	{
-		printf("open file failed!\n");
+		l_debug(ERR_LOG, "open file failed!\n");
 		return -1;
 	}
 	
@@ -119,7 +120,7 @@ int SendFwToSlave(AisleInfo *pInfo)
 
 	if (read_len != real_read)
 	{
-		printf("%dth read %s error!\n",pInfo->m_FwCount+1,fw_path);
+		l_debug(ERR_LOG, "%dth read %s error!\n",pInfo->m_FwCount+1,fw_path);
 		fclose(p_read_fw);
 		return -2;
 	}
@@ -143,7 +144,7 @@ int SendFwToSlave(AisleInfo *pInfo)
 	
 	if (res != read_len)
 	{
-		printf("send data %d th failed!\n", pInfo->m_FwCount+1);
+		l_debug(ERR_LOG, "send data %d th failed!\n", pInfo->m_FwCount+1);
 		return -3;
 	}
 	
@@ -165,7 +166,7 @@ int SendCommunicationRequest(int fd, unsigned char *pSlaveAddr, unsigned char ty
 
 	if (NULL == pSlaveAddr)
 	{
-		printf("%s:slave address error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:param error!\n",__FUNCTION__);
 		return -1;
 	}  
 	
@@ -183,7 +184,7 @@ int SendCommunicationRequest(int fd, unsigned char *pSlaveAddr, unsigned char ty
     res = write(fd, req_data, 7);
 	if (7 != res)
 	{
-		printf("%s:send %d request failed!\n",__FUNCTION__, type);
+		l_debug(ERR_LOG, "%s:send %d request failed!\n",__FUNCTION__, type);
 		return -1;
 	}
 	
@@ -208,13 +209,13 @@ int SendConfigration(int fd, unsigned char *pSlaveAddr, unsigned char type, unsi
 
 	if (NULL == pSlaveAddr)
 	{
-		printf("%s:slaver address error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:param error!\n",__FUNCTION__);
 		return -1;
 	}
 	
 	if (NULL == pData)
 	{
-		printf("%s:conf data error!\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:param error!\n", __FUNCTION__);
 		
 		return -1;
 	}  
@@ -247,7 +248,7 @@ int SendConfigration(int fd, unsigned char *pSlaveAddr, unsigned char type, unsi
     res = write(fd, conf_data, tmp);
 	if (tmp != res)
 	{
-		printf("%s:send %d request failed!\n",__FUNCTION__, type);
+		l_debug(ERR_LOG, "%s:send %d request failed!\n",__FUNCTION__, type);
 		return -1;
 	}
 	

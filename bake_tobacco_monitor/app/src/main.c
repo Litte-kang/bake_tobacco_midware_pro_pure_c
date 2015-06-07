@@ -30,8 +30,8 @@
 //#define REC_UART1_DATA_NUM 				2
 #define SEND_UART0_DATA_NUM		 		3
 //#define SEND_UART1_DATA_NUM				4
-#define THREAD_SIZE      				3
-#define CONNECT_TIMEOUT					5
+#define UPLOAD_AISLE_DATA_THRD_NUM		5
+#define THREAD_SIZE      				4
 
 //---------------------------end-------------------------------//
 
@@ -100,7 +100,6 @@ unsigned char g_PartnerId = 0;
 
 int main()
 {	
-
     AppInit();
     
     return 0;
@@ -120,20 +119,18 @@ static void AppInit()
 #else
 	int target_com[USER_COM_SIZE] = {HOST_COM_PORT0}; 
 #endif
-	int thrd_num[THREAD_SIZE] = {REC_UART0_DATA_NUM, SEND_UART0_DATA_NUM, IDLE_THRD_NUM};
+	int thrd_num[THREAD_SIZE] = {REC_UART0_DATA_NUM, SEND_UART0_DATA_NUM, UPLOAD_AISLE_DATA_THRD_NUM, IDLE_THRD_NUM};
     int i 			= 0;
     int res 		= 0;
     void *thrd_ret;
     FILE *fp 		= NULL;
-    char sql[70] 	= {0};
-    char *p_errmsg 	= NULL;
 
     //--- open aisle_data.db ---//
 	res = sqlite3_open(AISLE_DATA_DB, &g_PSqlite3Db);
 	
 	if(res)
     {
-    	printf("sqlite3 open the %s failed\n", AISLE_DATA_DB);
+    	l_debug(ERR_LOG, "sqlite3 open the %s failed\n", AISLE_DATA_DB);
 
         sqlite3_close(g_PSqlite3Db);
 
@@ -141,7 +138,7 @@ static void AppInit()
     }
     else
     {
-        printf("sqlite3 open the %s successfully\n", AISLE_DATA_DB);
+        l_debug(NULL, "sqlite3 open the %s successfully\n", AISLE_DATA_DB);
     }
    	
    	//--- open uart ---//
@@ -157,23 +154,6 @@ static void AppInit()
 		if( -1 != g_UartFDS[i]) 
 		{
 		    set_com_config(g_UartFDS[i], 9600, 8, 'N', 1);
-
-		    //--- create a table ---/
-			sprintf(sql, "CREATE TABLE %s%.2d(data VARCHAR(250) PRIMARY KEY);", AISLE_DATA_TABLE, g_UartFDS[i]);
-
-			res = sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, &p_errmsg);
-
-			sprintf(sql, "table %s%.2d already exists", AISLE_DATA_TABLE, g_UartFDS[i]);
-
-			if (res && strcmp(p_errmsg, sql))
-			{
-				printf("sqlite3 create %s%.2d failed!\n", AISLE_DATA_TABLE, g_UartFDS[i]);
-				exit(1);
-			}
-			else if (!res && !p_errmsg)
-			{
-				printf("sqlite3 create %s%.2d successfull!\n", AISLE_DATA_TABLE, g_UartFDS[i]);
-			}
 		}
 	}
 	//--- end ---//
@@ -182,8 +162,14 @@ static void AppInit()
 	
 	if (AsyncEventsInit())
 	{
-		printf("async cmds init failed!\n");
+		l_debug(ERR_LOG, "async cmds init failed!\n");
 		exit(1);
+	}
+
+	if (HttpServerInit(8080))
+	{
+		l_debug(ERR_LOG, "http server init failed!\n");
+		exit(1);		
 	}
 	
 	ReadConfInfo();
@@ -211,7 +197,7 @@ static void AppInit()
 		res = pthread_create(&thread[i], NULL, Thrds, (void*)thrd_num[i]);
 		if (0 != res)
 		{
-			printf("%s:create rec data thread failed!\n",__FUNCTION__);
+			l_debug(ERR_LOG, "%s:create rec data thread failed!\n",__FUNCTION__);
 			exit(1);
 		}
 	}
@@ -220,7 +206,7 @@ static void AppInit()
 
     if (0 != res)
     {
-		printf("%s:create idle thread failed!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:create idle thread failed!\n",__FUNCTION__);
         exit(1);
     }
 
@@ -239,7 +225,7 @@ static void AppInit()
 ***********************************************************************/
 static void ReadConfInfo()
 {
-	char conf_info[100] = {0};
+	char conf_info[120] = {0};
 	FILE *fp 					= NULL;
 	struct json_object *my_conf	= NULL;
 	struct json_object *my_obj 	= NULL;
@@ -248,7 +234,7 @@ static void ReadConfInfo()
 	
 	if (NULL == fp)
 	{
-		printf("%s:open %s failed!\n", __FUNCTION__, SER_ADDR);
+		l_debug(ERR_LOG, "%s:open %s failed!\n", __FUNCTION__, SER_ADDR);
 		
 		exit(1);
 	}
@@ -272,7 +258,7 @@ static void ReadConfInfo()
 	
 	if (NULL == fp)
 	{
-		printf("%s:open %s failed!\n", __FUNCTION__, MID_ID_PATH);
+		l_debug(ERR_LOG, "%s:open %s failed!\n", __FUNCTION__, MID_ID_PATH);
 		
 		exit(1);
 	}
@@ -344,7 +330,7 @@ static void RecUartData(int fd)
     			
     			default:
     			{
-					printf("----------------------------------%d\n",fd);
+					l_debug(NULL, "----------------------------------%d\n",fd);
 					if (FD_ISSET(fd, &tmp_inset))
 					{
 						memset(buff, 0, BUFFER_SIZE);
@@ -388,6 +374,9 @@ static void* Thrds(void *pArg)
 	{
 		case REC_UART0_DATA_NUM:
 			RecUartData(g_UartFDS[0]);
+			break;
+		case UPLOAD_AISLE_DATA_THRD_NUM:
+			UploadAisleData();
 			break;
 		default:
 			break;
@@ -481,7 +470,7 @@ static void* IdleThrd(void *pArg)
 static void TimerCallback(int SigNum)
 {
 	static int s_sec 				= 0;
-	int async_cmd_start_interval[3] = {120, 360, 720}; //-- alert, status, curves --//
+	int async_cmd_start_interval[3] = {80, 240, 480}; //-- alert, status, curves --//
 	char evt_types[3] 				= {ALERT_DATA_TYPE, STATUS_DATA_TYPE, CURVE_DATA_TYPE};
 	AsyncEvent evt 					= {0};
 	int i 							= 0;
@@ -489,8 +478,6 @@ static void TimerCallback(int SigNum)
 	if (SIGALRM == SigNum)
 	{	
 		GetRemoteCmd();
-		
-		UploadAisleData();
 		//-----------------------------------------------------------------//
 	
 		if (0 == g_IsFullMode)
@@ -511,7 +498,7 @@ static void TimerCallback(int SigNum)
 				}
 			}
 			
-			s_sec = s_sec % 720;
+			s_sec = s_sec % 700;
 		}
 				
 		//---------------------------------------------------------------//				
@@ -528,11 +515,12 @@ static void TimerCallback(int SigNum)
 ***********************************************************************/
 static void GetRemoteCmd()
 {
-	int socket_fd = -1;
-	char remote_cmd[256] = {0};
+	int socket_fd 					= -1;
+	static int s_sync_counter		= 0;
+	char remote_cmd[256*5]			= {0};
 	RemoteCmdInfo cmd;	
-	struct json_object *my_json = NULL;
-	struct json_object *my_array = NULL;
+	struct json_object *my_json 	= NULL;
+	struct json_object *my_array	 = NULL;
 	
 	my_json = json_object_new_object();
 	my_array = json_object_new_array();
@@ -540,36 +528,52 @@ static void GetRemoteCmd()
 	json_object_object_add(my_json, "address", json_object_new_string(g_MyLocalID));
 	json_object_object_add(my_json, "type", json_object_new_int(3));
 	
-	//json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+	json_object_array_add(my_array, json_object_new_int(1));
+
+	if (0 == s_sync_counter)
+	{
+		json_object_array_add(my_array, json_object_new_int(1));	
+	}
+	else
+	{
+		json_object_array_add(my_array, json_object_new_int(0));
+	}
+
+	s_sync_counter = (++s_sync_counter) % 3600;
 	
 	json_object_object_add(my_json, "data", my_array);
 	
-	socket_fd = ConnectServer(2, g_Param8125);	
+	socket_fd = ConnectServer(1, g_Param8125);	
 	if (0 <= socket_fd)
 	{
 		SendDataToServer(socket_fd, (unsigned char*)json_object_to_json_string(my_json), strlen(json_object_to_json_string(my_json)));
 		
-		if (!RecDataFromServer(socket_fd, remote_cmd, 256, 1))
+		if (!RecDataFromServer(socket_fd, remote_cmd, 256, 3)) //-- the network is 
 		{
-			L_DEBUG("remote cmd is [%s]\n", remote_cmd);
+			L_DEBUG("remote cmd is %s\n", remote_cmd);
 			ProRemoteCmd(g_UartFDS[0], remote_cmd);
 
-			SendDataToServer(socket_fd, (unsigned char*)json_object_to_json_string(my_json), strlen(json_object_to_json_string(my_json)));
-			if(RecDataFromServer(socket_fd, remote_cmd, 256, 1)) //-- wait server closing connection --//
-			{
-				sleep(1);
-				LogoutClient(socket_fd);
-			}
+			sleep(1);
+			LogoutClient(socket_fd, g_Param8125);
+			
 		}
 		else
 		{
-			printf("%s:get remote cmd timeout!\n", __FUNCTION__);
+			L_DEBUG("%s:get remote cmd timeout!\n", __FUNCTION__);
 
 			Delay_ms(100);
-			LogoutClient(socket_fd);
+			LogoutClient(socket_fd, g_Param8125);
 		}
 	}
-	
+
 	json_object_put(my_json);
 	json_object_put(my_array);
 }
@@ -585,45 +589,63 @@ static void UploadAisleData()
 	int socket_fd					= 0;
 	int upload_sum					= 150;	//-- 1s --//
 	int i 							= 0;
-	char sql[UPLOAD_SER_SIZE + 30] 	= {0};
+	char sql[UPLOAD_SER_SIZE + 40] 	= {0};
 	char **p_data 					= NULL;
+	int row = 0;
+	int col = 0;
 
-	socket_fd = ConnectServer(1, g_Param8124);
-	if (0 <= socket_fd)
-	{
-		for (i = 0; i < USER_COM_SIZE; ++i)
+	while (1)
+	{	
+		socket_fd = ConnectServer(1, g_Param8124);
+		if (0 <= socket_fd)
 		{
-			do
+			for (i = 0; i < USER_COM_SIZE; ++i)
 			{
-				sprintf(sql, "select * from %s%.d limit 0,1;", AISLE_DATA_TABLE, g_UartFDS[i]);			
+				upload_sum = 150;
 
-				if (!sqlite3_get_table(g_PSqlite3Db, sql, &p_data, NULL, NULL, NULL)) //-- get one data --//
+				do
 				{
-					if (!strcmp(p_data[0], "data"))
+					sprintf(sql, "select * from %s%.2d limit 0,1;", AISLE_DATA_TABLE, i);			
+
+					p_data = NULL;
+
+					if (!sqlite3_get_table(g_PSqlite3Db, sql, &p_data, &row, &col, NULL)) //-- get one data --//
 					{
-						SendDataToServer(socket_fd, (unsigned char*)p_data[1], strlen(p_data[1]));	//-- upload data --//
+						if (0 != row && 0 != col)
+						{						
+							L_DEBUG("%s:upload data(%d): %s\n",__FUNCTION__, strlen(p_data[1]), p_data[1]);
 
-						sprintf(sql, "delete from %s%.2d where data='%s';", AISLE_DATA_TABLE, g_UartFDS[i]);	//-- delete one data --//
+							SendDataToServer(socket_fd, (unsigned char*)p_data[1], strlen(p_data[1]));	//-- upload data --//								
 
-						sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL);
+							sprintf(sql, "delete from %s%.2d where data='%s';", AISLE_DATA_TABLE, i, p_data[1]);	//-- delete one data --//
+							sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL);
+
+							sqlite3_free_table(p_data);
+
+						}
+						else
+						{
+							//-- no data --//
+							L_DEBUG("transfer station: get data end from %s%.2d!\n", AISLE_DATA_TABLE, i);	
+							sqlite3_free_table(p_data);
+							break;
+						}
 					}
 					else
 					{
-						//-- no data --//
+						//-- get data failed --//
+						L_DEBUG("%s:get data failed from transfer station\n", __FUNCTION__);
 						break;
 					}
-				}
-				else
-				{
-					//-- get data failed --//
-					printf("%s:get data failed from transer station\n", __FUNCTION__);
-					break;
-				}
 
-			}while(--upload_sum);
+				}while(--upload_sum);
 
-			upload_sum = 150;
+			}
+
+			LogoutClient(socket_fd, g_Param8124);			
 		}
+
+		sleep(2);
 	}
 }
 

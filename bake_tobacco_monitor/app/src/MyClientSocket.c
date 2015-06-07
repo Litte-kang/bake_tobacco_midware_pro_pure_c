@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/time.h>
-
+#include "MyPublicFunction.h"
 //----------------------Define macro for xxx-------------------//
 
 //---------------------------end-------------------------------//
@@ -45,7 +45,7 @@ static void CatchSig(int SigNum)
 	switch (SigNum)
 	{
 		case SIGPIPE:
-			printf("catch SIGPIPE!\n");
+			l_debug(ERR_LOG, "catch SIGPIPE!\n");
 			break;
 		default:
 			break;
@@ -69,7 +69,7 @@ int ConnectServer(unsigned int times, CNetParameter param)
 
 	if (0 >= times)
 	{		
-		printf("%s:param error\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:param error\n", __FUNCTION__);
 		return -1;
 	}
 		
@@ -77,7 +77,7 @@ int ConnectServer(unsigned int times, CNetParameter param)
 	
 	if (-1 == socket_fd)
 	{
-		printf("%s:create socket failed!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:create socket failed!\n",__FUNCTION__);
 		return -1;
 	}
 
@@ -93,7 +93,7 @@ int ConnectServer(unsigned int times, CNetParameter param)
 		
 		if (0 == tmp)
 		{			
-			printf("connect %s:%d sucessful!\n", param.m_IPAddr, param.m_Port);
+			L_DEBUG("connect %s:%d sucessful!\n", param.m_IPAddr, param.m_Port);
 			
 			sa.sa_handler = SIG_IGN;
 			action.sa_handler = CatchSig;
@@ -110,7 +110,7 @@ int ConnectServer(unsigned int times, CNetParameter param)
 		sleep(1);
 	}while(--times);
 	
-	printf("connect %s:%d failed!\n", param.m_IPAddr, param.m_Port);
+	L_DEBUG("connect %s:%d failed!\n", param.m_IPAddr, param.m_Port);
 	close(socket_fd);
 	
 	return -1;
@@ -134,13 +134,13 @@ int RecDataFromServer(int fd, unsigned char *pBuff, unsigned int len, int timeou
 
 	if (NULL == pBuff)
 	{
-		printf("%s:memory error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:invaild param!\n",__FUNCTION__);
 		return -1;
 	}
 
 	if (0 > fd)
 	{
-		printf("%s:socket fd error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:socket fd error!\n",__FUNCTION__);
 		return -3;
 	}
 	
@@ -156,7 +156,7 @@ int RecDataFromServer(int fd, unsigned char *pBuff, unsigned int len, int timeou
 
 	if (!FD_ISSET(fd, &inset))
 	{
-		printf("%s:socket error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:socket error!\n",__FUNCTION__);
 		return -4;
 	}
 
@@ -165,12 +165,12 @@ int RecDataFromServer(int fd, unsigned char *pBuff, unsigned int len, int timeou
 	rec_len = recv(fd, pBuff, len, 0);	
 	if (-1 == rec_len)
 	{
-		printf("%s:recieve data from server failed!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:recieve data from server failed!\n",__FUNCTION__);
 		return -2;
 	}
 	else if (0 == rec_len)
 	{
-		printf("%s:connection break!\n",__FUNCTION__);
+		l_debug(NULL, "%s:connection break!\n",__FUNCTION__);
 		return -5;
 	}	
 
@@ -192,7 +192,7 @@ int SendDataToServer(int fd, unsigned char *pBuff, unsigned int len)
 
 	if (NULL == pBuff)
 	{
-		printf("%s:memory error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:invaild param!\n",__FUNCTION__);
 		return -1;
 	}
 
@@ -202,13 +202,13 @@ int SendDataToServer(int fd, unsigned char *pBuff, unsigned int len)
 		
 		if (-1 == send_len)
 		{
-			printf("%s:send data to server failed!\n",__FUNCTION__);
+			l_debug(ERR_LOG, "%s:send data to server failed!\n",__FUNCTION__);
 			return -2;
 		}		
 	}
 	else
 	{
-		printf("%s:socket fd error!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:socket fd error!\n",__FUNCTION__);
 		return -3;
 	}
 
@@ -218,15 +218,16 @@ int SendDataToServer(int fd, unsigned char *pBuff, unsigned int len)
 /***********************************************************************
 **Function Name	: LogoutClient
 **Description	: logout client free source.
-**Parameters	: fd.
+**Parameters	: fd - in.
+				: param - in.
 **Return		: none.
 ***********************************************************************/
-void LogoutClient(int fd)
+void LogoutClient(int fd, CNetParameter param)
 {
 	if (0 <= fd)
 	{
 		close(fd);
-		printf("logout client(%d) sucessful!\n",fd);		
+		L_DEBUG("logout client(%d) %s:%d sucessful!\n",fd, param.m_IPAddr, param.m_Port);		
 	}
 }
 

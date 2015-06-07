@@ -12,6 +12,7 @@
 #include "xProtocol.h"
 #include "AsyncEvents.h"
 #include "EventActionSet.h"
+#include "AisleManage.h"
 
 //----------------------Define macro for-------------------//
 //---------------------------end---------------------------//
@@ -107,7 +108,7 @@ static void* HttpServerThrd(void *pArg)
 	struct mg_server *p_server = NULL;
 	char port[5] = {0};
 
-	sprintf(port, "%s", (int)pArg);
+	sprintf(port, "%d", (int)pArg);
 
 	//--- Create and configure the server ---//
 	p_server = mg_create_server(NULL, EvtHandler);
@@ -118,7 +119,7 @@ static void* HttpServerThrd(void *pArg)
 
 		mg_set_option(p_server, "listening_port", port);	
 	
-		printf("starting on port %s\n", mg_get_option(p_server, "listening_port"));
+		L_DEBUG("Http server port %s\n", mg_get_option(p_server, "listening_port"));
 
 		while (1)
 		{
@@ -142,7 +143,7 @@ static int EvtHandler(struct mg_connection *pConn, enum mg_event evt)
 {
 	if (NULL != pConn->request_method)
 	{
-		printf("%s http://%s:%d%s\n",pConn->request_method,pConn->local_ip,pConn->local_port,pConn->uri);
+		L_DEBUG("%s http://%s:%d%s\n",pConn->request_method,pConn->local_ip,pConn->local_port,pConn->uri);
 	}
 	
 	switch (evt)
@@ -243,7 +244,7 @@ static int ProGetRequest(struct mg_connection *pConn)
 	else if (!strcmp(pConn->uri, "/favicon.ico"))
 	{
 		mg_send_status(pConn, status_code);
-		mg_send_file(pConn, "favicon.ico", NULL);
+		mg_send_file(pConn, "./web/favicon.ico", NULL);
 		
 		return MG_MORE;
 	}
@@ -259,16 +260,16 @@ static int ProGetRequest(struct mg_connection *pConn)
 ***********************************************************************/
 static int ProPostRequest(struct mg_connection *pConn)
 {
-	int status_code 						= 200;
+	int status_code 		= 200;
 	
-	if (!strcmp(pConn->uri, "mid_id"))
+	if (!strcmp(pConn->uri, "/mid_id"))
 	{
 		if(ConfigMidIdInfo(pConn->content, (pConn->content_len - 1)))
 		{
 			status_code = 404;
 		}
 	}
-	else if (!strcmp(pConn->uri, "slave_addrs"))
+	else if (!strcmp(pConn->uri, "/slave_addrs"))
 	{
 		if (ConfigSlaveAddrTable(pConn->content, (pConn->content_len - 1)))
 		{
@@ -299,14 +300,14 @@ static int 	GetMidIdInfo(char *pConf)
 
 	if (NULL == pConf)
 	{
-		printf("%s:param invaild\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:param invaild\n", __FUNCTION__);
 		return -1;
 	}
 
 	fp = fopen(MID_ID_PATH, "r");
 	if (NULL == fp)
 	{
-		printf("%s:open %s failed\n", MID_ID_PATH);
+		l_debug(ERR_LOG, "%s:open %s failed\n", __FUNCTION__, MID_ID_PATH);
 		return -1;
 	}
 	else
@@ -346,42 +347,44 @@ static int 	GetSlaveAddr(char *pConf)
 {
 	FILE *fp 			= NULL;
 	int n 				= 0;
-	int slave_addr		= {0};
+	int slave_addr		= 0;
 
 	if (NULL == pConf)
 	{
-		printf("%s:invaild param!\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:invaild param!\n", __FUNCTION__);
 		return -1;
 	}
 
 	fp = fopen("./conf/slaves_addr/aisle_00", "r");
 	if (NULL == fp)
 	{
-		printf("%s:open ./conf/slaves_addr/aisle_00 failed\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:open ./conf/slaves_addr/aisle_00 failed\n", __FUNCTION__);
 		return -1;
 	}
 	else
 	{
 		while(!feof(fp))
 		{
-			if (2 >= fscanf(fp, "%d\n", slave_addr))
+			if (0 >= fscanf(fp, "%d\n", &slave_addr))
 			{
-				printf("slave address is empty!\n");
+				l_debug(ERR_LOG, "slave address is empty!\n");
 				break;
 			}
 			
 			if (INVAILD_SLAVE_ADDR == slave_addr)
 			{
-				printf("a invaild slave addr!\n");
+				l_debug(ERR_LOG, "a invaild slave addr!\n");
 				continue;
 			}
 
-			sprintf(&pConf[n], "%.5d", slave_addr);
-			n += 5;
+			sprintf(&pConf[n], "%.5d ", slave_addr);
+			n += 6;
 		}
+
+		fclose(fp);
 	}
 
-	sprintf(&pConf[n], "</br></br> 当前自控仪数量：%d", (n / 5));
+	sprintf(&pConf[n], "</br></br> 当前自控仪数量：%d", (n / 6));
 
 	return 0;
 }
@@ -401,14 +404,14 @@ static int 	GetMidVersion(char *pConf)
 
 	if (NULL == pConf)
 	{
-		printf("%s:param invaild\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:param invaild\n", __FUNCTION__);
 		return -1;
 	}
 
 	fp = fopen("./conf/version", "r");
 	if (NULL == fp)
 	{
-		printf("%s:open ./conf/version failed\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:open ./conf/version failed\n", __FUNCTION__);
 		return -1;
 	}
 	else
@@ -460,15 +463,15 @@ static int 	GetSlaveData(char *pConf)
 }
 
 /***********************************************************************
-**Function Name	: GetSlaveData
-**Description	: get slaves data(alert, status, curves).
+**Function Name	: ConfigMidIdInfo
+**Description	: set slaves mid id.
 **Parameters	: pConf - in.
 				: len - in.
 **Return		: /
 ***********************************************************************/
 static int 	ConfigMidIdInfo(char *pConf, int len)
 {
-	char conf_info[100] 		= {0};
+	char conf_info[120] 		= {0};
 	char mid_id[11]				= {0};
 	struct json_object *my_conf	= NULL;
 	struct json_object *my_obj 	= NULL;
@@ -476,7 +479,7 @@ static int 	ConfigMidIdInfo(char *pConf, int len)
 
 	if (NULL == pConf)
 	{
-		printf("%s:invaild param!\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:invaild param!\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -487,13 +490,13 @@ static int 	ConfigMidIdInfo(char *pConf, int len)
 	
 	memset(conf_info, 0, 100);
 
-	my_obj = json_object_object_get(my_conf, "mid_id");	//-- my id --//
-	memset(mid_id, json_object_get_string(my_obj), 10);
+	my_obj = json_object_object_get(my_conf, "midId");	//-- my id --//
+	memcpy(mid_id, json_object_get_string(my_obj), 10);
 	sprintf(conf_info, "{\"id\":\"%s\",\"name\":", mid_id);
 	
 	json_object_put(my_obj);
 	
-	my_obj = json_object_object_get(my_conf, "name");	//-- name --//
+	my_obj = json_object_object_get(my_conf, "midIdCh");	//-- name --//
 	sprintf(&conf_info[strlen(conf_info)],"\"%s\",\"partnerId\":\"0\"}", json_object_get_string(my_obj));
 
 	json_object_put(my_obj);
@@ -502,7 +505,7 @@ static int 	ConfigMidIdInfo(char *pConf, int len)
 	fp = fopen(MID_ID_PATH, "w");
 	if (NULL == fp)
 	{
-		printf("%s:open %s failed!\n", __FUNCTION__, MID_ID_PATH);
+		l_debug(ERR_LOG, "%s:open %s failed!\n", __FUNCTION__, MID_ID_PATH);
 		return -1;
 	}
 
@@ -512,18 +515,20 @@ static int 	ConfigMidIdInfo(char *pConf, int len)
 
 	memcpy(g_MyLocalID, mid_id, 10);
 
+	L_DEBUG("new local id %s\n", g_MyLocalID);
+
 	return 0;
 }
 
 /***********************************************************************
-**Function Name	: GetSlaveData
-**Description	: get slaves data(alert, status, curves).
-**Parameters	: pConf - out.
+**Function Name	: ConfigSlaveAddrTable
+**Description	: set slaves table.
+**Parameters	: pConf - in.
+				: len - in.
 **Return		: /
 ***********************************************************************/
 static int 	ConfigSlaveAddrTable(char *pConf, int len)
 {
-	char conf_file_path[30] 				= {0};
 	char conf_info[MAX_SLAVE_SUM * 5 + 100]	= {0};
 	struct json_object *my_conf				= NULL;
 	struct json_object *my_address			= NULL;
@@ -531,42 +536,42 @@ static int 	ConfigSlaveAddrTable(char *pConf, int len)
 	FILE *fp 								= NULL;
 	char is_add_slave						= 0;
 	int slave_sum 							= 0;
+	int aisle 								= 0;
+	int address0 							= 0;
+	int address1							= 0;
 	int i 									= 0;
 
 	if (NULL == pConf)
 	{
-		printf("%s:invaild param!\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:invaild param!\n", __FUNCTION__);
 		return -1;
 	}
 
 	memcpy(&conf_info[1], pConf, len);
 	conf_info[0] = '{';
 
-	printf("%s\n", conf_info);
-
 	my_conf = json_tokener_parse(conf_info);
 	
-	memset(conf_info, 0, 100);
+	memset(conf_info, 0, (MAX_SLAVE_SUM * 5 + 100));
 
 	my_obj = json_object_object_get(my_conf, "aisle");	//-- aisle --//
-	sprintf(conf_file_path, "%s%s", SLAVES_ADDR_CONF, json_object_get_string(my_obj));
+	aisle = atoi(json_object_get_string(my_obj));
+	sprintf(conf_info, "%s%.2d", SLAVES_ADDR_CONF, aisle);
 	json_object_put(my_obj);
 
 	my_obj = json_object_object_get(my_conf, "action");	//-- action --//
 	is_add_slave = (char)json_object_get_int(my_obj);
 	json_object_put(my_obj);
 
-	my_address = json_object_object_get(my_conf, "address");	//-- address --//
+	my_address = json_object_object_get(my_conf, "addresses");	//-- address --//
 	slave_sum = json_object_array_length(my_address);
-
-	L_DEBUG("%s\n", conf_file_path);
 
 	if (1 == is_add_slave)
 	{
-		fp = fopen(conf_file_path, "a");
+		fp = fopen(conf_info, "a");
 		if (NULL == fp)
 		{
-			printf("%s:open %s failed\n", conf_file_path);
+			l_debug(ERR_LOG, "%s:open %s failed\n", __FUNCTION__, conf_info);
 
 			json_object_put(my_conf);
 			json_object_put(my_address);
@@ -583,22 +588,31 @@ static int 	ConfigSlaveAddrTable(char *pConf, int len)
 	}
 	else 
 	{
-		fp = fopen(conf_file_path, "w");
+		slave_sum = GetSlaveSumOnAisle(g_UartFDS[aisle]);
+
+		fp = fopen(conf_info, "w");
 		if (NULL == fp)
 		{
-			printf("%s:open %s failed\n", conf_file_path);
+			l_debug(ERR_LOG, "%s:open %s failed\n", __FUNCTION__, conf_info);
 
 			json_object_put(my_conf);
 			json_object_put(my_address);
 
 			return -1;
 		}
+		
+		my_obj = json_object_array_get_idx(my_address, 0);
+		address0 = json_object_get_int(my_obj);
+		
+		json_object_put(my_obj);
 
 		for (i = 0; i < slave_sum; ++i)
 		{
-			my_obj = json_object_array_get_idx(my_address, i);
-			fprintf(fp, "%.5d\n",  json_object_get_int(my_obj));
-			json_object_put(my_obj);
+			address1 = GetSlaveAddrByPos(i, g_UartFDS[aisle]);
+			if (address0 != address1)
+			{
+				fprintf(fp, "%.5d\n",  address1);	
+			}			
 		}
 	}
 
@@ -607,6 +621,8 @@ static int 	ConfigSlaveAddrTable(char *pConf, int len)
 	json_object_put(my_address);
 
 	json_object_put(my_conf);
+
+	AisleManageInit();
 
 	return 0;	
 }

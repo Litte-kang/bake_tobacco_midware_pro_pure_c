@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "AsyncEvents.h"
+#include "MyPublicFunction.h"
 
 //----------------------Define macro for-------------------//
 	
@@ -86,28 +87,28 @@ int AsyncEventsInit()
 	res = pthread_attr_init(&attr);
 	if (0 != res)
 	{
-		printf("%s:create thread attribute failed!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:create thread attribute failed!\n",__FUNCTION__);
 		return -2;
 	}
 
 	res = pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 	if (0 != res)
 	{
-		printf("%s:bind attribute failed!\n", __FUNCTION__);
+		l_debug(ERR_LOG, "%s:bind attribute failed!\n", __FUNCTION__);
 		return -2;
 	}
 	
 	res = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	if (0 != res)
 	{
-		printf("%s:setting attribute failed!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:setting attribute failed!\n",__FUNCTION__);
 		return -3;
 	}
 
 	res = pthread_create(&thread, &attr, ReadAsyncEvtsThrd, (void*)0);
 	if (0 != res)
 	{
-		printf("%s:create connect \"ReadAsyncCmdsThrd\" failed!\n",__FUNCTION__);
+		l_debug(ERR_LOG, "%s:create connect \"ReadAsyncCmdsThrd\" failed!\n",__FUNCTION__);
 		return -4;
 	}
 	
@@ -147,7 +148,7 @@ static void* ReadAsyncEvtsThrd(void *pArg)
 {
 	g_AsyncEvtFlag = NULL_ASYNC_EVT_FLAG;
 	
-	printf("%s\n", __FUNCTION__);
+	l_debug(NULL, "%s\n", __FUNCTION__);
 	
 	while (1)
 	{
@@ -158,8 +159,6 @@ static void* ReadAsyncEvtsThrd(void *pArg)
 			g_CurAsyncEvent = (0 < g_AsyncEvtQueLevel00.m_CurAsyncEvtsSum \
 							? g_AsyncEvtQueLevel00.m_AsyncEvts[g_AsyncEvtQueLevel00.m_ReadPos] \
 							: g_AsyncEvtQueLevel01.m_AsyncEvts[g_AsyncEvtQueLevel01.m_ReadPos]);
-			
-			printf("-----cur level is %d,read position\n",g_CurAsyncEvent.m_Priority);
 			
 			switch (g_CurAsyncEvent.m_Priority)
 			{
@@ -173,7 +172,6 @@ static void* ReadAsyncEvtsThrd(void *pArg)
 					}
 					break;
 				case LEVEL_1:
-					printf("read pos is %d\n", g_AsyncEvtQueLevel01.m_ReadPos);
 					g_AsyncEvtQueLevel01.m_ReadPos++;
 					g_AsyncEvtQueLevel01.m_CurAsyncEvtsSum--;
 					
@@ -256,7 +254,7 @@ int AddAsyncEvent(AsyncEvent evt)
 			break;
 	}
 	
-	printf("%s: LEVEL_%d async cmd queue fulled!\n", __FUNCTION__,evt.m_Priority);
+	l_debug(ERR_LOG, "%s: LEVEL_%d async cmd queue fulled!\n", __FUNCTION__,evt.m_Priority);
 	
 	return -1;
 }

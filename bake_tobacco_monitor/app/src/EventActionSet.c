@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "EventActionSet.h"
 #include "AsyncEvents.h"
 #include "MyPublicFunction.h"
@@ -22,90 +23,21 @@
 
 //--------------------Define variable for------------------//
 
+/*
+Description			: event action flags.
+Default value		: EVT_ACTION_NULL_FLAG.
+The scope of value	: /.
+First used			: /
+*/
+char g_EvtActionFlag = EVT_ACTION_NULL_FLAG;
 
 //---------------------------end--------------------------//
 
 
 //------------Declaration static function for--------------//
 
-static int	 	UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int aisle, int socektFd);
-static void		SaveAisleLog(unsigned char *pAdress, int type);
-
 //---------------------------end---------------------------//
 
-/***********************************************************************
-**Function Name	: SaveAisleLog
-**Description	: write log to log buff.
-**Parameter		: pAdress - in.
-				: type - in.
-**Return		: none.
-***********************************************************************/
-static void	SaveAisleLog(unsigned char *pAdress, int type)
-{
-	int pos = 0;
-
-	pos  = (g_AisleLogData.m_AvailableSpace > 45) ? g_AisleLogData.m_CurPos : 0;	
-
-	if (0 == pos)
-	{
-		memcpy(g_AisleLogData.m_Data, 0, AISLE_LOG_DATA_SIZE);
-	}
-
-	sprintf(&g_AisleLogData.m_Data[pos], "receive %.5d type(%d) ack timeout!</br>",((int)(pAdress[0] << 8) | pAdress[1]), type);
-}
-
-/***********************************************************************
-**Function Name	: UploadFeedbacks
-**Description	: upload feedbacks to server.
-**Parameter		: type - in.
-				: pFileName - backup file name.
-				: pData - data.
-				: len - the length of data.
-				: aisle - in.
-				: socketFd - in.
-**Return		: 0 - ok, ohter - failed.
-***********************************************************************/
-static int UploadFeedbacks(int type, unsigned char *pData, unsigned int len, int aisle, int socektFd)
-{
-	unsigned char json_str[75] 	= {0};
-	char sql[100] 				= {0};
-	int slave_address 			= 0;
-	int res 					= 0;
-	int i 						= 0;
-	
-	slave_address = pData[0];
-	slave_address <<= 8;
-	slave_address |= pData[1];
-	
-	sprintf(json_str, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[", g_MyLocalID, type, slave_address);
-		
-	len = len - 2;
-	
-	for (i = 0; i < len; ++i)
-	{
-		res = strlen(json_str);
-		sprintf(&json_str[res],"%d,", pData[2 + i]);
-	}
-	
-	res = strlen(json_str);
-	
-	json_str[res - 1] = ']';
-	json_str[res] = '}';
-	
-	if (0 <= socektFd)
-	{
-		res = SendDataToServer(socektFd, json_str, (res + 1));
-	}
-	
-	if (0 != res)
-	{
-		sprintf(sql, "INSERT INTO '%s%.d' VALUES('%s');", AISLE_DATA_TABLE, aisle, json_str);
-
-		sqlite3_exec(g_PSqlite3Db, sql, NULL, NULL, NULL);
-	}
-		
-	return res;
-}
 
 /***********************************************************************
 **Function Name	: GetSlaveBaseInfo
@@ -124,6 +56,7 @@ void SendDataReq(int arg)
 	unsigned int counter 			= 0;
 	unsigned char address[SLAVE_ADDR_LEN] 	= {0};
 	unsigned char data_status 				= 0;
+	unsigned char logs[50]					= {0};
 	TIME start;
 	
 	SetCurSlavePositionOnTab(param.m_Aisle, 0);
@@ -178,12 +111,13 @@ void SendDataReq(int arg)
 			if (NULL_DATA_FLAG == data_status)
 			{
 
-				res = IS_TIMEOUT(start, (1500));	//-- we will send notice again slave, if not receive ack in (2)s --//
+				res = IS_TIMEOUT(start, (2000));	//-- we will send notice again slave, if not receive ack in (2)s --//
 				if (0 != res)
 				{
-					printf("%s:receive %.5d type(%d) ack timeout!\n", __FUNCTION__,((int)(address[0] << 8) | address[1]), param.m_Type);
+					sprintf(logs, "receive %.5d %d type ack timeout!</br>\n", ((int)(address[0] << 8) | address[1]), param.m_Type);
+					L_DEBUG("%s:%s", __FUNCTION__, logs);
 					
-					SaveAisleLog(address, param.m_Type);
+					SaveAisleLog(logs);
 					
 					SendCommunicationRequest(param.m_Aisle, address, param.m_Type);
 					GET_SYS_CURRENT_TIME(start);
@@ -210,16 +144,16 @@ void SendDataReq(int arg)
 			}
 					
 		}while(3 > send_again_counter);  //-- we will notice next slave, if we have sent 4 times --//
-
-		if ((FORCE_END_ASYNC_EVT_FLAG & g_AsyncEvtFlag))
-		{
-			break;
-		}
 							
 		position++;
 		COUNTER(3, send_again_counter);
 		send_again_counter = 0;	
 		SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);		
+
+		if ((FORCE_END_ASYNC_EVT_FLAG & g_AsyncEvtFlag))
+		{
+			break;
+		}
 	}
 
 	SetCurSlavePositionOnTab(param.m_Aisle, 0);
@@ -245,9 +179,9 @@ void SendConfigData(int arg)
 	unsigned int send_again_counter 		= 0;
 	unsigned char data[1 + SLAVE_ADDR_LEN] 	= {0};
 	unsigned char address[SLAVE_ADDR_LEN] 	= {0};
+	unsigned char logs[50]		= {0};
 	unsigned int counter 		= 0;
 	unsigned char data_status 	= 0;
-	int	socket_fd				= 0;
 	char evt_types[3] 			= {ALERT_DATA_TYPE, STATUS_DATA_TYPE, CURVE_DATA_TYPE};
 	TIME start;
 	EventParams next_evt_param;
@@ -276,8 +210,6 @@ void SendConfigData(int arg)
 		slave_sum = GetSlaveSumOnAisle(param.m_Aisle);
 		position = GetCurSlavePositionOnTab(param.m_Aisle);		
 	}
-
-	socket_fd = ConnectServer(1, g_Param8124);
 
 	while (position < slave_sum)
 	{	
@@ -311,13 +243,14 @@ void SendConfigData(int arg)
 			
 			if (NULL_DATA_FLAG == data_status)
 			{
-				res = IS_TIMEOUT(start, (1500));	//-- we will send request again slave, if not receive ack in 5s --//
+				res = IS_TIMEOUT(start, (3000));	//-- we will send request again slave, if not receive ack in 5s --//
 				if (0 != res)
-				{
-					printf("%s:receive %.5d type(%d) ack timeout!\n", __FUNCTION__, ((int)(address[0] << 8) | address[1]), param.m_Body.m_RemoteCmd.m_Type);
+				{					
+					sprintf(logs, "receive %.5d %d type ack timeout!</br>\n", ((int)(address[0] << 8) | address[1]), param.m_Type);
+					L_DEBUG("%s:%s", __FUNCTION__, logs);
 					
-					SaveAisleLog(address, param.m_Body.m_RemoteCmd.m_Type);
-					
+					SaveAisleLog(logs);
+
 					SendConfigration(param.m_Aisle, address, param.m_Body.m_RemoteCmd.m_Type, param.m_Body.m_RemoteCmd.m_Data, param.m_Body.m_RemoteCmd.m_DataLen);
 					
 					GET_SYS_CURRENT_TIME(start);
@@ -345,20 +278,20 @@ void SendConfigData(int arg)
 			}
 				
 		}while(3 > send_again_counter);  //-- we will notice next slave, if we have sent 3 times --//
-
-		if ((FORCE_END_ASYNC_EVT_FLAG & g_AsyncEvtFlag))
-		{
-			break;
-		}
 					
 		//--- tell server what we modify ok ---//
-		res = UploadFeedbacks(param.m_Body.m_RemoteCmd.m_Type, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle, socket_fd);
+		res = WriteRemoteCmdFeedbacksToLocal(param.m_Body.m_RemoteCmd.m_Type, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle);
 		//--- end ---//	
 		
 		SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
 		position++;
 		COUNTER(3, send_again_counter);
 		send_again_counter = 0;
+
+		if ((FORCE_END_ASYNC_EVT_FLAG & g_AsyncEvtFlag))
+		{
+			break;
+		}
 	}
 
 	SetCurSlavePositionOnTab(param.m_Aisle, 0);
@@ -367,9 +300,6 @@ void SendConfigData(int arg)
 	L_DEBUG("===========================================\n");
 	L_DEBUG("%d slaves configure successful by %d aisle!\n", counter, param.m_Aisle);
 	L_DEBUG("===========================================\n");
-	
-	LogoutClient(socket_fd);
-	Delay_ms(1000);
 
 	if (counter)
 	{
@@ -401,7 +331,6 @@ void SendFwUpdateNotice(int arg)
 	unsigned int position 		= 0;
 	int res 					= 0;
 	int fw_count 				= 0;
-	int socket_fd				= 0;
 	int send_again_counter 		= 0;
 	unsigned int counter 		= 0;
 	unsigned char data[1 + SLAVE_ADDR_LEN] 				= {0};
@@ -453,10 +382,8 @@ void SendFwUpdateNotice(int arg)
 	notice[7 + SLAVE_ADDR_LEN] = FW_UPDATE_FLAG1;
 	notice[8 + SLAVE_ADDR_LEN] = FW_UPDATE_FLAG0;
 	
-	L_DEBUG("VER = %d\n", notice[6 + SLAVE_ADDR_LEN]);
+	L_DEBUG("slave version = %.3d\n", notice[6 + SLAVE_ADDR_LEN]);
 	//--- end of fill notice content ---//
-
-	socket_fd = ConnectServer(1, g_Param8124);
 	
 	while(position < slave_sum)	
 	{
@@ -484,7 +411,7 @@ void SendFwUpdateNotice(int arg)
 			if (6 <= send_again_counter || 0 != res) //-- if we send the same section fw 12 times or we can not update ok in 10 minutes, we will give up --//
 			{
 				send_again_counter = 6;
-				printf("%s:%.5d update timeout!\n",__FUNCTION__,((int)(address[0] << 8) | address[1]));
+				L_DEBUG("%s:%.5d update timeout!\n",__FUNCTION__,((int)(address[0] << 8) | address[1]));
 				data[SLAVE_ADDR_LEN] = 0;
 				break;
 			}
@@ -512,7 +439,7 @@ void SendFwUpdateNotice(int arg)
 							break;
 						}
 						
-						printf("%s:rec %.5d update ack timeout, send notice again!\n",__FUNCTION__,	((int)(address[0] << 8) | address[1]));
+						L_DEBUG("%s:rec %.5d update ack timeout, send notice again!\n",__FUNCTION__,	((int)(address[0] << 8) | address[1]));
 						
 						write(param.m_Aisle, notice, 11);			//-- send notice updated to slave again --//
 					}
@@ -534,7 +461,7 @@ void SendFwUpdateNotice(int arg)
 		}
 		
 		//--- tell server what we have updated a machine ---//
-		res = UploadFeedbacks(5, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle, socket_fd);
+		res = WriteRemoteCmdFeedbacksToLocal(5, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle);
 		//--- end ---//	
 		
 		COUNTER(6, send_again_counter);
@@ -554,9 +481,6 @@ void SendFwUpdateNotice(int arg)
 	L_DEBUG("%d slaves update successful by %d aisle\n", counter, param.m_Aisle);
 	L_DEBUG("===========================================\n");
 	
-	LogoutClient(socket_fd);
-	sleep(1);
-
 	if (counter)
 	{
 		next_evt_param.m_Aisle = param.m_Aisle;
@@ -567,7 +491,140 @@ void SendFwUpdateNotice(int arg)
 	}
 }
 
+/***********************************************************************
+**Function Name	: SendTimeData
+**Description	: sync slave time.
+**Parameter		: arg - in.
+**Return		: none.
+***********************************************************************/
+void SendTimeData(int arg)
+{
+	EventParams param 		= (*(EventParams*)arg); 
+	unsigned int res 		= 0;
+	unsigned int slave_sum 	= 0;
+	unsigned int position 	= 0;
+	unsigned int send_again_counter 		= 0;
+	unsigned char address[SLAVE_ADDR_LEN] 	= {0};
+	unsigned char time_value[6]				= {0};
+	unsigned char logs[50] 					= {0};
+	char data_status						= 0;
+	unsigned int counter 					= 0;
+	time_t now_time 						= {0};
+	struct tm *p_now_time 					= NULL;
+	TIME start;
+	
+	SetCurSlavePositionOnTab(param.m_Aisle, 0);
+	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
 
+	//--- get slave sum and start position on param.m_Aisle ---//	
+	if (0x0000ffff != param.m_Body.m_Id)
+	{
+		if (!GetSlavePositionOnTab(param.m_Body.m_Id, &position, param.m_Aisle))
+		{
+			slave_sum = position + 1;
+		}
+		else
+		{
+			position = slave_sum;
+		}
+	}
+	else
+	{
+		slave_sum = GetSlaveSumOnAisle(param.m_Aisle);
+		position = GetCurSlavePositionOnTab(param.m_Aisle);		
+	}
+
+	while (position < slave_sum)
+	{		
+		SetCurSlavePositionOnTab(param.m_Aisle, position);	//-- set the current slave address table position --//	
+		
+		res = GetSlaveAddrByPos(position, param.m_Aisle);
+		
+		address[0] = (unsigned char)(res >> 8);
+		address[1] = (unsigned char)res;
+
+		time(&now_time);
+		p_now_time = localtime(&now_time);
+
+		time_value[0] = (unsigned char)(p_now_time->tm_year % 100);
+		time_value[1] = (unsigned char)(p_now_time->tm_mon + 1);
+		time_value[2] = (unsigned char)p_now_time->tm_mday;
+		time_value[3] = (unsigned char)p_now_time->tm_hour;
+		time_value[4] = (unsigned char)p_now_time->tm_min;	
+
+		L_DEBUG("send time data(20%d-%.2d-%.2d %.2d:%.2d) to %.5d by %d aisle\n", time_value[0], time_value[1], time_value[2], time_value[3], time_value[4], res, param.m_Aisle);
+		
+		SendConfigration(param.m_Aisle, address, param.m_Type, time_value, 5);
+					
+		GET_SYS_CURRENT_TIME(start);
+		
+		do
+		{
+			Delay_ms(5);
+			
+			if ((FORCE_END_ASYNC_EVT_FLAG & g_AsyncEvtFlag))
+			{
+				L_DEBUG("force end cur cmd\n");
+				break;
+			}	
+			
+			data_status = GetAisleFlag(param.m_Aisle);
+			
+			if (NULL_DATA_FLAG == data_status)
+			{
+				res = IS_TIMEOUT(start, (3000));	//-- we will send request again slave, if not receive ack in 5s --//
+				if (0 != res)
+				{					
+					sprintf(logs, "receive %.5d %d type ack timeout!</br>\n", ((int)(address[0] << 8) | address[1]), param.m_Type);
+					L_DEBUG("%s:%s", __FUNCTION__, logs);
+					
+					SaveAisleLog(logs);
+
+					SendConfigration(param.m_Aisle, address, param.m_Type, time_value, 5);
+					
+					GET_SYS_CURRENT_TIME(start);
+					send_again_counter++;
+				}
+			}
+			else if (PRO_DATA_FAILED_FLAG == data_status)
+			{
+				SendConfigration(param.m_Aisle, address, param.m_Type, time_value, 5);
+				GET_SYS_CURRENT_TIME(start);
+				SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
+			}
+			else
+			{	
+				while (!(PRO_DATA_OK_FLAG & GetAisleFlag(param.m_Aisle)))	//-- wait --//
+				{
+					Delay_ms(5);
+				}
+				
+				break;	//-- receive ack --//
+			}
+				
+		}while(3 > send_again_counter);  //-- we will notice next slave, if we have sent 3 times --//
+					
+		SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
+		position++;
+		COUNTER(3, send_again_counter);
+		send_again_counter = 0;
+
+		if ((FORCE_END_ASYNC_EVT_FLAG & g_AsyncEvtFlag))
+		{
+			break;
+		}
+	}
+
+	SetCurSlavePositionOnTab(param.m_Aisle, 0);
+	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
+
+	g_EvtActionFlag ^= EVT_ACTION_SYNC_TIME_FLAG; 
+	
+	L_DEBUG("===========================================\n");
+	L_DEBUG("%d slaves sync time successful by %d aisle!\n", counter, param.m_Aisle);
+	L_DEBUG("===========================================\n");
+
+}
 
 
 
