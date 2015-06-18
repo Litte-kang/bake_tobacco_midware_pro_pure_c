@@ -69,11 +69,13 @@ static void* DownloadFw(void* pArg)
 	
 	g_RemoteCmdFlag |= REMOTE_CMD_START_FW_DOWNLOAD_FLAG;
 
-	fw_type = param.m_Data[6];
-	fw_size = CONV_TO_INT(param.m_Data[0], param.m_Data[1], param.m_Data[2], param.m_Data[3]);
-	fw_ver = CONV_TO_INT(0, 0, param.m_Data[4], param.m_Data[5]);
+	fw_type = param.m_Data[8];
+	fw_size = CONV_TO_INT(param.m_Data[2], param.m_Data[3], param.m_Data[4], param.m_Data[5]);
+	fw_ver = CONV_TO_INT(0, 0, param.m_Data[6], param.m_Data[7]);
 	
-	fd = CONV_TO_INT(param.m_Data[7], param.m_Data[8], param.m_Data[9], param.m_Data[10]);
+	tmp = param.m_DataLen;
+
+	fd = CONV_TO_INT(param.m_Data[tmp], param.m_Data[tmp + 1], param.m_Data[tmp + 2], param.m_Data[tmp + 3]);
 
 	pid_id = fork();
 	
@@ -116,6 +118,7 @@ static void* DownloadFw(void* pArg)
 
 			if (!ReadFileInfo(args, &tmp))
 			{
+
 				if (tmp == fw_size)
 				{
 					L_DEBUG("%s:down fw successful!\n", __FUNCTION__);
@@ -132,16 +135,19 @@ static void* DownloadFw(void* pArg)
 					{
 						evt.m_Params.m_Aisle = fd;
 						evt.m_Params.m_Type = param.m_Type;
-						evt.m_Params.m_Body.m_Id = (int)param.m_Addr[0];
-						evt.m_Params.m_Body.m_Id <<= 8;
-						evt.m_Params.m_Body.m_Id |= (int)param.m_Addr[1];
+						memcpy(&evt.m_Params.m_Body.m_RemoteCmd, &param, sizeof(RemoteCmdInfo));
 						evt.m_Action = SendFwUpdateNotice;
 						evt.m_Priority = LEVEL_0;
 						
-						AddAsyncEvent(evt);						
+						AddAsyncEvent(evt);										
 					}
 
 					tmp = 1;
+				}
+				else
+				{
+					remove(args); //-- delete error fw --//
+					tmp = 0;
 				}
 			}
 			else
@@ -154,7 +160,7 @@ static void* DownloadFw(void* pArg)
 			args[1] = 255;	
 			args[2] = tmp;
 
-			WriteRemoteCmdFeedbacksToLocal(4, args, 3, fd);
+			WriteRemoteCmdFeedbacksToLocal((fw_type != 100 ? 4 : 6), args, 3, fd); //-- innotek_exec_00 fw --//
 
 			if (100 == fw_type && 1 == tmp)
 			{
@@ -190,7 +196,7 @@ static int CheckFwVersion(RemoteCmdInfo CMDInfo)
 	struct json_object *my_obj 	= NULL;
 	char version_infos[100]      = {0}; 
 
-	sprintf(version_infos, "./fws/fw_%d/%d.version", CMDInfo.m_Data[6], CMDInfo.m_Data[6]);
+	sprintf(version_infos, "./fws/fw_%d/%d.version", CMDInfo.m_Data[8], CMDInfo.m_Data[8]);
 	
 	L_DEBUG("%s\n", version_infos);
 
@@ -213,9 +219,9 @@ static int CheckFwVersion(RemoteCmdInfo CMDInfo)
 	json_object_put(my_ver);
 	json_object_put(my_obj);
 	
-	new_fw_ver = (int)CMDInfo.m_Data[4];
+	new_fw_ver = (int)CMDInfo.m_Data[6];
 	new_fw_ver <<= 8;
-	new_fw_ver |= (int)CMDInfo.m_Data[5];
+	new_fw_ver |= (int)CMDInfo.m_Data[7];
 	
 	if (new_fw_ver < cur_fw_ver)
 	{
@@ -231,7 +237,7 @@ static int CheckFwVersion(RemoteCmdInfo CMDInfo)
 	{
 		L_DEBUG("%s:fw is new version\n",__FUNCTION__);
 
-		sprintf(version_infos,"./fws/fw_%d/%d.%.3d.fw", CMDInfo.m_Data[6], CMDInfo.m_Data[6], cur_fw_ver);
+		sprintf(version_infos,"./fws/fw_%d/%d.%.3d.fw", CMDInfo.m_Data[8], CMDInfo.m_Data[8], cur_fw_ver);
 
 		L_DEBUG("%s:delete older ver %s\n",__FUNCTION__, version_infos);
 
@@ -274,15 +280,15 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 		return 0;
 	}
 
-	if (100 != CMDInfo.m_Data[6])	//-- just slave fw --//
+	if (100 != CMDInfo.m_Data[8])	//-- just slave fw --//
 	{
-		fw_size = CONV_TO_INT(CMDInfo.m_Data[0], CMDInfo.m_Data[1], CMDInfo.m_Data[2], CMDInfo.m_Data[3]);	
+		fw_size = CONV_TO_INT(CMDInfo.m_Data[2], CMDInfo.m_Data[3], CMDInfo.m_Data[4], CMDInfo.m_Data[5]);	
 		sections = fw_size / (AVG_SECTION_FW_SIZE);
 		last_section_size = fw_size % (AVG_SECTION_FW_SIZE);
 		
-		g_FWInfo.m_Version = (int)CMDInfo.m_Data[4];
+		g_FWInfo.m_Version = (int)CMDInfo.m_Data[6];
 		g_FWInfo.m_Version <<=8;
-		g_FWInfo.m_Version |= (int)CMDInfo.m_Data[5];
+		g_FWInfo.m_Version |= (int)CMDInfo.m_Data[7];
 		g_FWInfo.m_SectionSum = (last_section_size) ? ((sections) + 1) : sections;	//-- N + 1 --//
 		g_FWInfo.m_LastSectionSize = last_section_size;
 
@@ -297,13 +303,11 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 
 		WriteRemoteCmdFeedbacksToLocal(4, feedback, 3, fd);		
 
-		if (100 != CMDInfo.m_Data[6])	//-- just slave fw --//
+		if (100 != CMDInfo.m_Data[8])	//-- just slave fw --//
 		{
 			evt.m_Params.m_Aisle = fd;
 			evt.m_Params.m_Type = CMDInfo.m_Type;
-			evt.m_Params.m_Body.m_Id = (int)CMDInfo.m_Addr[0];
-			evt.m_Params.m_Body.m_Id <<= 8;
-			evt.m_Params.m_Body.m_Id |= (int)CMDInfo.m_Addr[1];
+			memcpy(&evt.m_Params.m_Body.m_RemoteCmd, &CMDInfo, sizeof(RemoteCmdInfo));
 			evt.m_Action = SendFwUpdateNotice;
 			evt.m_Priority = LEVEL_0;
 			
@@ -335,10 +339,11 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 	}
 
 	//--- write fd to CMDInfo ---//
-	CMDInfo.m_Data[7] = (char)(fd >> 24);
-	CMDInfo.m_Data[8] = (char)(fd >> 16);
-	CMDInfo.m_Data[9] = (char)(fd >> 8);
-	CMDInfo.m_Data[10] = (char)fd;			
+	res = CMDInfo.m_DataLen;
+	CMDInfo.m_Data[res++] = (char)(fd >> 24);
+	CMDInfo.m_Data[res++] = (char)(fd >> 16);
+	CMDInfo.m_Data[res++] = (char)(fd >> 8);
+	CMDInfo.m_Data[res++] = (char)fd;			
 	
 	res = pthread_create(&thread, &attr, DownloadFw, (void*)&(CMDInfo));
 	if (0 != res)
@@ -548,6 +553,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 		{
 			case REMOTE_CMD_CONFIG_MID_TIME:	//-- config middleware --//
 			case RMMOTE_CMD_CONFIG_MID_PARAM:
+			case REMOTE_CMD_NEW_FW_NOTICE:
 				tmp = 0;
 				break;
 			default:							//-- config slave --//

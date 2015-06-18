@@ -9,7 +9,7 @@
 #define NULL (void*)0
 #endif
 
-#define PLATFORM	"arm"
+#define PLATFORM	"mips"
 
 //--------------------------------------MACRO---------------------------------------//
 

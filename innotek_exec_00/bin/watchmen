@@ -6,7 +6,7 @@ echo "I will watch "./bin/$obj
 
 while true
 do
-	ps a | grep ./bin/$obj | grep -v grep > /dev/null
+	ps w | grep ./bin/$obj | grep -v grep > /dev/null
 	
 	if [ $? != 0 ]
 	then

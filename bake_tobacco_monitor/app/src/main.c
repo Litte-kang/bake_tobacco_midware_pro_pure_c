@@ -556,7 +556,7 @@ static void GetRemoteCmd()
 	{
 		SendDataToServer(socket_fd, (unsigned char*)json_object_to_json_string(my_json), strlen(json_object_to_json_string(my_json)));
 		
-		if (!RecDataFromServer(socket_fd, remote_cmd, 256, 3)) //-- the network is 
+		if (!RecDataFromServer(socket_fd, remote_cmd, (256*5), 3)) //-- the network is 
 		{
 			L_DEBUG("remote cmd is %s\n", remote_cmd);
 			ProRemoteCmd(g_UartFDS[0], remote_cmd);

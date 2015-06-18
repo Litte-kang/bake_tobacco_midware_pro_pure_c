@@ -4,7 +4,7 @@
 
 #define		GNR_COM			0
 #define		USB_COM			1
-#define 	COM_TYPE		GNR_COM
+#define 	COM_TYPE		USB_COM
 
 #define		HOST_COM_PORT0		1
 #define     HOST_COM_PORT_SIZE	1

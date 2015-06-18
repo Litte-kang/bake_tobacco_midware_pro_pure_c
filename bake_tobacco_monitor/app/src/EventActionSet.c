@@ -330,6 +330,7 @@ void SendFwUpdateNotice(int arg)
 	unsigned int slave_sum 		= 0;
 	unsigned int position 		= 0;
 	int res 					= 0;
+	int n 						= 0;
 	int fw_count 				= 0;
 	int send_again_counter 		= 0;
 	unsigned int counter 		= 0;
@@ -345,22 +346,9 @@ void SendFwUpdateNotice(int arg)
 	SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
 
 	//--- get slaver sum and start position on param.m_Aisle ---//	
-	if (0x0000ffff != param.m_Body.m_Id)
-	{
-		if (!GetSlavePositionOnTab(param.m_Body.m_Id, &position, param.m_Aisle))
-		{
-			slave_sum = position + 1;
-		}
-		else
-		{
-			position = slave_sum;
-		}
-	}
-	else
-	{
-		slave_sum = GetSlaveSumOnAisle(param.m_Aisle);
-		position = GetCurSlavePositionOnTab(param.m_Aisle);	
-	}
+	slave_sum = (unsigned int)param.m_Body.m_RemoteCmd.m_Data[0];
+	slave_sum <<= 8;
+	slave_sum |= (unsigned int)param.m_Body.m_RemoteCmd.m_Data[1];
 	//--- end of get slaver sum and start position on param.m_Aisle ---// 
 	
 	//--- fill send_again_notice ---//
@@ -384,12 +372,15 @@ void SendFwUpdateNotice(int arg)
 	
 	L_DEBUG("slave version = %.3d\n", notice[6 + SLAVE_ADDR_LEN]);
 	//--- end of fill notice content ---//
-	
-	while(position < slave_sum)	
+	n = 9;
+	while(slave_sum--)	
 	{
+		res = param.m_Body.m_RemoteCmd.m_Data[n++];
+		res <<= 8;
+		res |= param.m_Body.m_RemoteCmd.m_Data[n++];
+
+		GetSlavePositionOnTab(res, &position, param.m_Aisle);
 		SetCurSlavePositionOnTab(param.m_Aisle, position);	//-- set the current slave address table position --//
-		
-		res = GetSlaveAddrByPos(position, param.m_Aisle);	
 		
 		address[0] = (unsigned char)(res >> 8);
 		address[1] = (unsigned char)res;
@@ -468,9 +459,8 @@ void SendFwUpdateNotice(int arg)
 		send_again_counter = 0;
 		ClearFwCount(param.m_Aisle);
 		SetAisleFlag(param.m_Aisle, NULL_DATA_FLAG);
-		position++;	
 		send_again_counter = 0;			
-		sleep(9);
+		sleep(10);
 	
 	}
 	

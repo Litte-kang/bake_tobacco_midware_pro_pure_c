@@ -2,8 +2,16 @@
 
 arg=$1
 
+/bin/sh ./bin/check_network &
+
 echo "start download fw"
 
 wget $arg
 
 echo "end download fw"
+
+pid=`ps w | grep check_network | grep -v grep | awk '{print $1}'`
+
+echo "kill check_network"
+echo "kill -9 "$pid
+kill -9 $pid
