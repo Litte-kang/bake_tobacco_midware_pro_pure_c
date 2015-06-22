@@ -164,8 +164,10 @@ static void* DownloadFw(void* pArg)
 
 			if (100 == fw_type && 1 == tmp)
 			{
+				sleep(10);
+				
 				L_DEBUG("||--100 fw download ok restart middleware!--||\n");
-				execl("reboot", "reboot", NULL, NULL);
+				execl("/bin/sh", "/bin/sh", "start", NULL, NULL);
 			}
 
 		}
@@ -603,7 +605,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 ***********************************************************************/
 int WriteRemoteCmdFeedbacksToLocal(int type, unsigned char *pData, unsigned int len, int aisle)
 {
-	char sql[100] 				= {0};
+	char sql[110] 				= {0};
 	int slave_address 			= 0;
 	int res 					= 0;
 	int i 						= 0;

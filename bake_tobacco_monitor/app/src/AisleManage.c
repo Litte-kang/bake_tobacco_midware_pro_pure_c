@@ -112,6 +112,8 @@ void AisleManageInit()
 			l_debug(ERR_LOG, "%s:get slaves address failed(%s)! exit system\n", __FUNCTION__, slaves_addr_conf);
 			exit(1);
 		}
+
+		slave_sum = 0;
 		
 		//--- manage slave address ---//
 		while(!feof(fp))

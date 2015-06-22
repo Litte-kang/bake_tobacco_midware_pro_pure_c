@@ -11,6 +11,7 @@ do
 	if [ $? != 0 ]
 	then
 		#./bin/informer
+		echo "restart................................................"
 		/bin/sh start
 	fi
 	

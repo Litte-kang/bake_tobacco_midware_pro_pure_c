@@ -5,7 +5,7 @@
 
 //----------------------Define macro for-------------------//
 
-#define MAX_ASYNC_EVT_SUM	5
+#define MAX_ASYNC_EVT_SUM	7
 
 //--- Priority ---//
 #define LEVEL_0		0	//--- high ---//

@@ -1,5 +1,7 @@
 #!/bin/ash
 
+/bin/sh ./bin/kill_processes
+
 date >> ./data/error.log
 
 chmod 777 ./bin/Bake_Tobacco_Monitor
@@ -41,7 +43,7 @@ do
 		
 		cd ../../../
 		
-		echo $new_ver > ./conf/version
+		echo '{"version":"'$new_ver'"}' > ./conf/version
 		
 		break
 	else
@@ -49,8 +51,6 @@ do
 	fi
 
 done
-
-/bin/sh ./bin/kill_processes
 
 echo "start monitor"
 ./bin/Bake_Tobacco_Monitor &

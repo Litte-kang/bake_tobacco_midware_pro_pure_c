@@ -379,7 +379,11 @@ void SendFwUpdateNotice(int arg)
 		res <<= 8;
 		res |= param.m_Body.m_RemoteCmd.m_Data[n++];
 
-		GetSlavePositionOnTab(res, &position, param.m_Aisle);
+		if (GetSlavePositionOnTab(res, &position, param.m_Aisle))
+		{
+			continue;
+		}
+
 		SetCurSlavePositionOnTab(param.m_Aisle, position);	//-- set the current slave address table position --//
 		
 		address[0] = (unsigned char)(res >> 8);

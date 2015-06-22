@@ -1,54 +1,22 @@
 #!/bin/ash
 
-ip='114.114.114.114'
-
-max_packet_loss=90
-
-CheckNetwork()
-{
-	ip=$1
-
-	res=`ping -c 10 -s 10 $ip | grep loss`
-
-	res=`echo $res '&'`
-
-	while true
-	do
-
-		tmp=`echo $res | awk '{print $1}'`
-
-		echo $tmp | grep % > /dev/null
-	
-		if [ $? == 0 ]
-		then
-			break
-		fi
-
-		if [ '&' == $tmp ]
-		then
-			tmp="100%"
-			break
-		fi
-
-		res=`echo ${res#$tmp}`
-
-	done
-
-	len=`echo ${#tmp}`
-	len=`expr $len - 1`
-	
-	packet_loss=`echo ${tmp:0:$len}`
-	
-	expr $packet_loss - 0
-	
-	return 
-}
-
 while true
 do
-	cur_packet_loss=$(CheckNetwork $ip)
+	ps w | grep stalled | grep -v grep | awk '{print $1}'
 
-	if [ "$cur_packet_loss" -gt "$max_packet_loss" ]
+	if [ $? != 0 ]
+	then
+		pid=`ps w | grep wget | grep -v grep | awk '{print $1}'`
+
+		echo "kill wget"
+		echo "kill -9 "$pid
+		kill -9 $pid
+
+		break
+	fi
+
+	ifconfig 3g-wan >> /dev/null
+	if [ $? != 0 ]
 	then
 		pid=`ps w | grep wget | grep -v grep | awk '{print $1}'`
 

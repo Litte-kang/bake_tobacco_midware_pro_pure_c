@@ -515,12 +515,12 @@ static void TimerCallback(int SigNum)
 ***********************************************************************/
 static void GetRemoteCmd()
 {
-	int socket_fd 					= -1;
-	static int s_sync_counter		= 0;
-	char remote_cmd[256*5]			= {0};
+	int socket_fd 							= -1;
+	static int s_sync_time_counter			= 0;
+	char remote_cmd[256*MAX_ASYNC_EVT_SUM] 	= {0};
 	RemoteCmdInfo cmd;	
 	struct json_object *my_json 	= NULL;
-	struct json_object *my_array	 = NULL;
+	struct json_object *my_array	= NULL;
 	
 	my_json = json_object_new_object();
 	my_array = json_object_new_array();
@@ -538,7 +538,7 @@ static void GetRemoteCmd()
 	json_object_array_add(my_array, json_object_new_int(1));
 	json_object_array_add(my_array, json_object_new_int(1));
 
-	if (0 == s_sync_counter)
+	if (0 == s_sync_time_counter)
 	{
 		json_object_array_add(my_array, json_object_new_int(1));	
 	}
@@ -547,7 +547,7 @@ static void GetRemoteCmd()
 		json_object_array_add(my_array, json_object_new_int(0));
 	}
 
-	s_sync_counter = (++s_sync_counter) % 3600;
+	s_sync_time_counter = (++s_sync_time_counter) % 3600;
 	
 	json_object_object_add(my_json, "data", my_array);
 	
@@ -556,7 +556,7 @@ static void GetRemoteCmd()
 	{
 		SendDataToServer(socket_fd, (unsigned char*)json_object_to_json_string(my_json), strlen(json_object_to_json_string(my_json)));
 		
-		if (!RecDataFromServer(socket_fd, remote_cmd, (256*5), 3)) //-- the network is 
+		if (!RecDataFromServer(socket_fd, remote_cmd, (256*MAX_ASYNC_EVT_SUM), 3)) //-- the network is 
 		{
 			L_DEBUG("remote cmd is %s\n", remote_cmd);
 			ProRemoteCmd(g_UartFDS[0], remote_cmd);
