@@ -55,4 +55,6 @@ done
 echo "start monitor"
 ./bin/Bake_Tobacco_Monitor &
 
+sleep 5
+
 /bin/sh ./bin/watchmen Bake_Tobacco_Monitor &

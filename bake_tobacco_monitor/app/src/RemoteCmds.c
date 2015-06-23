@@ -159,15 +159,17 @@ static void* DownloadFw(void* pArg)
 			args[0] = 255;
 			args[1] = 255;	
 			args[2] = tmp;
+			args[3] = ((fw_ver & 0xff00) >> 8);
+			args[4] = (fw_ver & 0x00ff);	
 
-			WriteRemoteCmdFeedbacksToLocal((fw_type != 100 ? 4 : 6), args, 3, fd); //-- innotek_exec_00 fw --//
+			WriteRemoteCmdFeedbacksToLocal((fw_type != 100 ? 4 : 6), args, 5, fd); //-- innotek_exec_00 fw --//
 
 			if (100 == fw_type && 1 == tmp)
 			{
 				sleep(10);
 				
 				L_DEBUG("||--100 fw download ok restart middleware!--||\n");
-				execl("/bin/sh", "/bin/sh", "start", NULL, NULL);
+				execl("/bin/sh", "/bin/sh", "./bin/restart", NULL, NULL);
 			}
 
 		}
@@ -269,15 +271,17 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 	pthread_attr_t attr;
 	void *thrd_ret 					= NULL;
 	AsyncEvent evt 					= {0};
-	unsigned char feedback[3] 		= {255,255,0};
+	unsigned char feedback[5] 		= {255,255,0};
 
 	res = CheckFwVersion(CMDInfo);
 	
 	if (0 == res) //--- older version ---//
 	{
 		feedback[2] = 2;
+		feedback[3] = CMDInfo.m_Data[6];
+		feedback[4] = CMDInfo.m_Data[7];
 
-		WriteRemoteCmdFeedbacksToLocal(4, feedback, 3, fd);
+		WriteRemoteCmdFeedbacksToLocal(4, feedback, 5, fd);
 
 		return 0;
 	}
@@ -302,8 +306,10 @@ static int RemoteCMD_NewFwNotice(int fd, RemoteCmdInfo CMDInfo)
 	{
 		
 		feedback[2] = 1;
+		feedback[3] = CMDInfo.m_Data[6];
+		feedback[4] = CMDInfo.m_Data[7];
 
-		WriteRemoteCmdFeedbacksToLocal(4, feedback, 3, fd);		
+		WriteRemoteCmdFeedbacksToLocal(4, feedback, 5, fd);		
 
 		if (100 != CMDInfo.m_Data[8])	//-- just slave fw --//
 		{
@@ -605,7 +611,7 @@ int ProRemoteCmd(int fd, char *pCmd)
 ***********************************************************************/
 int WriteRemoteCmdFeedbacksToLocal(int type, unsigned char *pData, unsigned int len, int aisle)
 {
-	char sql[110] 				= {0};
+	char sql[200] 				= {0};
 	int slave_address 			= 0;
 	int res 					= 0;
 	int i 						= 0;

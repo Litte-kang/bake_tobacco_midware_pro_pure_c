@@ -334,7 +334,7 @@ void SendFwUpdateNotice(int arg)
 	int fw_count 				= 0;
 	int send_again_counter 		= 0;
 	unsigned int counter 		= 0;
-	unsigned char data[1 + SLAVE_ADDR_LEN] 				= {0};
+	unsigned char data[3 + SLAVE_ADDR_LEN] 				= {0};
 	unsigned char notice[9 + SLAVE_ADDR_LEN] 			= {0};
 	unsigned char send_again_notice[5 + SLAVE_ADDR_LEN] = {0};
 	unsigned char address[SLAVE_ADDR_LEN] 				= {0};
@@ -372,26 +372,33 @@ void SendFwUpdateNotice(int arg)
 	
 	L_DEBUG("slave version = %.3d\n", notice[6 + SLAVE_ADDR_LEN]);
 	//--- end of fill notice content ---//
+
 	n = 9;
+	data[SLAVE_ADDR_LEN + 1] = param.m_Body.m_RemoteCmd.m_Data[6];
+	data[SLAVE_ADDR_LEN + 2] = param.m_Body.m_RemoteCmd.m_Data[7];
+
 	while(slave_sum--)	
 	{
 		res = param.m_Body.m_RemoteCmd.m_Data[n++];
 		res <<= 8;
 		res |= param.m_Body.m_RemoteCmd.m_Data[n++];
 
+		address[0] = (unsigned char)(res >> 8);
+		address[1] = (unsigned char)res;
+
+		memcpy(data, address, SLAVE_ADDR_LEN);			
+		data[SLAVE_ADDR_LEN] = 1; //-- default update ok! --//
+
 		if (GetSlavePositionOnTab(res, &position, param.m_Aisle))
 		{
+			data[SLAVE_ADDR_LEN] = 0;
+			WriteRemoteCmdFeedbacksToLocal(5, data, (3 + SLAVE_ADDR_LEN), param.m_Aisle);
 			continue;
 		}
 
 		SetCurSlavePositionOnTab(param.m_Aisle, position);	//-- set the current slave address table position --//
-		
-		address[0] = (unsigned char)(res >> 8);
-		address[1] = (unsigned char)res;
-		
+			
 		memcpy(&notice[3], address, SLAVE_ADDR_LEN);	//-- fill slave address --//
-		memcpy(data, address, SLAVE_ADDR_LEN);			
-		data[SLAVE_ADDR_LEN] = 1; //-- default update ok! --//
 		
 		SetAisleFlag(param.m_Aisle, PRO_FW_UPDATE_FLAG);		//-- allow processing update ack data from slave --//
 
@@ -456,7 +463,7 @@ void SendFwUpdateNotice(int arg)
 		}
 		
 		//--- tell server what we have updated a machine ---//
-		res = WriteRemoteCmdFeedbacksToLocal(5, data, (1 + SLAVE_ADDR_LEN), param.m_Aisle);
+		res = WriteRemoteCmdFeedbacksToLocal(5, data, (3 + SLAVE_ADDR_LEN), param.m_Aisle);
 		//--- end ---//	
 		
 		COUNTER(6, send_again_counter);
