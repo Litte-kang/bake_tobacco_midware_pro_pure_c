@@ -15,6 +15,10 @@
 #include "AisleManage.h"
 
 //----------------------Define macro for-------------------//
+
+#define MG_SEND_FILE 	SendWebFile
+#define MG_SEND_DATA	SendWebData	
+
 //---------------------------end---------------------------//
 
 
@@ -43,6 +47,8 @@ static int 		GetMidIdInfo(char *pConf);
 static int 		GetSlaveAddr(char *pConf);
 static int 		GetMidVersion(char *pConf);
 static int 		GetSlaveData(char *pConf);
+static void 	SendWebFile(struct mg_connection *pConn, int statusCode, const char *pPath);
+static void 	SendWebData(struct mg_connection *pConn, int statusCode, const char *pData);
 
 //---------------------------end---------------------------//
 
@@ -95,6 +101,38 @@ int	HttpServerInit(int port)
 	}
 
 	return 0;
+}
+
+/***********************************************************************
+**Function Name	: SendWebData
+**Description	: send some data to web app.
+**Parameters	: pConn - in.
+				: statusCode - in.
+				: pPath - in.
+**Return		: none.
+***********************************************************************/
+static void SendWebFile(struct mg_connection *pConn, int statusCode, const char *pPath)
+{
+	mg_send_header(pConn, "Content-Type", "text/html");
+	mg_send_header(pConn, "Cache-Control", "no-cache");
+	mg_send_status(pConn, statusCode);
+	mg_send_file(pConn, pPath, NULL);
+}
+
+/***********************************************************************
+**Function Name	: SendWebData
+**Description	: send some data to web app.
+**Parameters	: pConn - in.
+				: statusCode - in.
+				: pData - in.
+**Return		: none.
+***********************************************************************/
+static void SendWebData(struct mg_connection *pConn, int statusCode, const char *pData)
+{
+	mg_send_header(pConn, "Content-Type", "application/string");
+	mg_send_header(pConn, "Cache-Control", "no-cache");
+	mg_send_status(pConn, statusCode);
+	mg_printf_data(pConn, pData);
 }
 
 /***********************************************************************
@@ -182,12 +220,28 @@ static int ProGetRequest(struct mg_connection *pConn)
 
 	if (!strcmp(pConn->uri, "/"))
 	{
-		mg_send_header(pConn, "Content-Type", "text/html");
-		mg_send_header(pConn, "Cache-Control", "no-cache");
-		mg_send_status(pConn, status_code);
-		mg_send_file(pConn, "./web/index.html", NULL);	
-		
+		MG_SEND_FILE(pConn, status_code, "./web/index.html");		
 		return MG_MORE;
+	}
+	else if (!strcmp(pConn->uri, "/readme.html"))
+	{
+		MG_SEND_FILE(pConn, status_code, "./web/readme.html");
+		return MG_MORE;		
+	}
+	else if (!strcmp(pConn->uri, "/imgs/readme_1.png"))
+	{
+		MG_SEND_FILE(pConn, status_code, "./web/public/imgs/readme_1.png");
+		return MG_MORE;		
+	}
+	else if (!strcmp(pConn->uri, "/imgs/readme_2.png"))
+	{
+		MG_SEND_FILE(pConn, status_code, "./web/public/imgs/readme_2.png");
+		return MG_MORE;		
+	}
+	else if (!strcmp(pConn->uri, "/imgs/readme_3.png"))
+	{
+		MG_SEND_FILE(pConn, status_code, "./web/public/imgs/readme_3.png");
+		return MG_MORE;		
 	}
 	else if (!strcmp(pConn->uri, "/mid_id"))
 	{
@@ -196,10 +250,7 @@ static int ProGetRequest(struct mg_connection *pConn)
 			status_code = 404;
 		}
 
-		mg_send_header(pConn, "Content-Type", "application/string");
-		mg_send_header(pConn, "Cache-Control", "no-cache");
-		mg_send_status(pConn, status_code);
-		mg_printf_data(pConn, conf_info);
+		MG_SEND_DATA(pConn, status_code, conf_info);
 	}
 	else if (!strcmp(pConn->uri, "/cur_slave_addrs_00"))
 	{
@@ -208,10 +259,7 @@ static int ProGetRequest(struct mg_connection *pConn)
 			status_code = 404;
 		}
 
-		mg_send_header(pConn, "Content-Type", "application/string");
-		mg_send_header(pConn, "Cache-Control", "no-cache");		
-		mg_send_status(pConn, status_code);
-		mg_printf_data(pConn, conf_info);	
+		MG_SEND_DATA(pConn, status_code, conf_info);	
 	}
 	else if (!strcmp(pConn->uri, "/version"))
 	{
@@ -220,26 +268,17 @@ static int ProGetRequest(struct mg_connection *pConn)
 			status_code = 404;
 		}
 
-		mg_send_header(pConn, "Content-Type", "application/string");
-		mg_send_header(pConn, "Cache-Control", "no-cache");		
-		mg_send_status(pConn, status_code);
-		mg_printf_data(pConn, conf_info);
+		MG_SEND_DATA(pConn, status_code, conf_info);
 	}
 	else if(!strcmp(pConn->uri, "/slave_data"))
 	{
 		GetSlaveData(conf_info);
 
-		mg_send_header(pConn, "Content-Type", "application/string");
-		mg_send_header(pConn, "Cache-Control", "no-cache");		
-		mg_send_status(pConn, status_code);
-		mg_printf_data(pConn, conf_info);
+		MG_SEND_DATA(pConn, status_code, conf_info);
 	}
 	else if (!strcmp(pConn->uri, "/tmp_log"))
 	{
-		mg_send_header(pConn, "Content-Type", "application/string");
-		mg_send_header(pConn, "Cache-Control", "no-cache");		
-		mg_send_status(pConn, 200);
-		mg_printf_data(pConn, g_AisleLogData.m_Data);
+		MG_SEND_DATA(pConn, status_code, g_AisleLogData.m_Data);
 	}
 	else if (!strcmp(pConn->uri, "/favicon.ico"))
 	{

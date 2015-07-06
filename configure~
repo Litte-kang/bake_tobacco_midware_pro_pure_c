@@ -32,8 +32,8 @@ fi
 
 if [ "$arg" == 'mips' ]
 then
-	LIBPATH="-L/usr/local/mips/json-c-0.9/lib -L/usr/local/mips/sqlite-3.7.14/lib"
-	INCPATH="-I/usr/local/mips/json-c-0.9/include/json -I/usr/local/mips/sqlite-3.7.14/include"
+	LIBPATH="-L/usr/local/mips/json-C-0.9/lib -L/usr/local/mips/sqlite-3.7.14/lib"
+	INCPATH="-I/usr/local/mips/json-C-0.9/include/json -I/usr/local/mips/sqlite-3.7.14/include"
 	echo "CC = mipsel-openwrt-linux-gcc"
 	echo "CC = mipsel-openwrt-linux-gcc" >> ./bake_tobacco_monitor/makefile/Makefile
 	echo "CC = mipsel-openwrt-linux-gcc" >> ./version_parse/Makefile

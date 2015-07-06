@@ -23,7 +23,7 @@
 }
 .TMPLOG {
 	font-family: "Times New Roman", Times, serif;
-	font-size: 19px;
+	font-size: 18px;
 }
 .LABFONT {
 	font-family: "Times New Roman", Times, serif;
@@ -35,60 +35,51 @@
 
 <body>
 </br></br></br></br>
-
-<table width="591" height="108" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
-<tr>
-  <td width="108" height="30" rowspan="2" align="left" valign="middle" class="LABFONT">中间件ID</td>
-  <td height="30" align="left"><input name="midId_ch" id="midId_ch" type="text"></td>
-  </tr>
-<tr>
-  <td height="30" align="left">
-    <input name="midId" type="text" id="midId" value="0000000000" maxlength="10">
-	&nbsp;
-    <input name="midIdSubmitButton" type="button" class="MYBUTTON" id="midIdSubmitButton" onClick="buttonEvt(this)" value="提交" /> </td>
-</tr>
-</table>
-</br>
-<table width="591" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
+<table width="591" height="108" border="1" align="center" cellpadding="1" cellspacing="1" bordercolor="#408080">
   <tr>
-    <td width="108" height="30" align="left" valign="middle"><span class="LABFONT">地址通道</span></td>
-    <td height="29" align="left"><input name="aisle" type="text" id="aisle" value="00" maxlength="2" readonly="true">
-      &nbsp;</td>
+    <td colspan="2" align="right"><a href="readme.html" target="_blank">操作说明</a></td>
   </tr>
   <tr>
-    <td width="108" height="30" align="left" valign="middle" class="LABFONT">自控仪地址</td>
-    <td height="30"><input name="address" type="text" id="address" maxlength="5" >
-    &nbsp;
-    <input name="addButton" type="button" class="MYBUTTON" id="addButton" onClick="buttonEvt(this)" value="添加">
-&nbsp;      <input name="delButton" id="delButton" type="button" onClick="buttonEvt(this)" class="MYBUTTON" value="删除" /></td>
+    <td width="90" rowspan="2">中间件ID : </td>
+    <td width="501" height="40"><input name="midId_ch" type="text" id="midId_ch" value="中间件所在地"></td>
   </tr>
   <tr>
-    <td height="30" colspan="2"><input name="addrSumbitButton" type="button" class="MYBUTTON" id="addrSumbitButton" onClick="buttonEvt(this)" value="提交">
-      &nbsp;<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="buttonEvt(this)" value="重置">
-      &nbsp;<input name="getButton" type="button" class="MYBUTTON" id="getButton" onClick="buttonEvt(this)" value="提取自控仪数据"></td>
+    <td height="40"><input name="midId" type="text" id="midId" value="0000000000" maxlength="10">
+&nbsp;
+<input name="midIdSubmitButton" type="button" class="MYBUTTON" id="midIdSubmitButton" onClick="buttonEvt(this)" value="提交" /></td>
   </tr>
   <tr>
-    <td height="34" colspan="2"><div id="displayCur" ></div></td>
+    <td>数据通道 : </td>
+    <td height="40"><input name="aisle" type="text" id="aisle" value="00" maxlength="2" readonly="true"></td>
   </tr>
   <tr>
-    <td height="34" colspan="2"><div id="displayNew" ></div></td>
+    <td>自控仪ID :</td>
+    <td height="40"><input name="address" type="text" id="address" maxlength="5" >
+&nbsp;
+<input name="addButton" type="button" class="MYBUTTON" id="addButton" onClick="buttonEvt(this)" value="添加">
+&nbsp;
+<input name="delButton" id="delButton" type="button" onClick="buttonEvt(this)" class="MYBUTTON" value="删除" /></td>
   </tr>
-</table>
-</br>
-<table width="591" border="2" align="center" cellpadding="2" cellspacing="1" bordercolor="#408080">
   <tr>
-    <td><textarea name="tmpLog" cols="70" rows="10" class="TMPLOG" id="tmpLog" readonly="true">{"tmp.log"}</textarea></td>
+    <td height="40" colspan="2"><input name="addrSumbitButton" type="button" class="MYBUTTON" id="addrSumbitButton" onClick="buttonEvt(this)" value="提交">
+&nbsp;
+<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="buttonEvt(this)" value="重置">
+&nbsp;
+<input name="getButton" type="button" class="MYBUTTON" id="getButton" onClick="buttonEvt(this)" value="提取自控仪数据"></td>
   </tr>
-</table>
-</br>
-<table width="591" border="0" align="center">
   <tr>
-    <td><div align="left" id="block_footer"></div>&nbsp;</td>
+    <td colspan="2"><div id="displayCur" ></br></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div id="displayNew" ></br></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><textarea name="tmpLog" cols="80" rows="10" readonly="true" class="TMPLOG" id="tmpLog">{"tmp.log"}</textarea></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="left" id="block_footer"></br></div></td>
   </tr>
 </table>
-<script type="text/javascript">
-
-</script>
 
 <script type="text/javascript">
 
@@ -114,7 +105,7 @@ function buttonEvt(btn)
 	{	
 		if (0 < newSlaveAddrsArray.length)
 		{					
-			document.getElementById("displayNew").innerHTML = "";
+			document.getElementById("displayNew").innerHTML = "</br>";
 			document.getElementById("address").value = "";
 			
 			jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":1' + "," + '"addresses":' + "[" + newSlaveAddrsArray + "]" + "}";
@@ -124,7 +115,7 @@ function buttonEvt(btn)
 			newSlaveAddrsArray.splice(0, newSlaveAddrsArray.length);
 			newSlaveAddrs = "";	
 
-			alert(res);	
+			alert("添加成功");	
 			initPage();	
 		}
 	}
@@ -211,7 +202,7 @@ function buttonEvt(btn)
 					
 					res = sendHttpReq("POST", "slave_addrs", jsonStr);
 
-					alert(res);
+					alert("删除成功");
 					initPage();
 				}
 				

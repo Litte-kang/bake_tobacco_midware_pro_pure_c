@@ -1,0 +1,23 @@
+#!/bin/ash
+
+while true
+do
+	echo "checking network 0.............................."
+
+#	ifconfig 3g-wan >> /dev/null	#mips
+	ifconfig ppp0 >> /dev/null 		#arm
+	
+	if [ $? != 0 ]
+	then
+		pid=`ps w | grep wget | grep -v grep | awk '{print $1}'`
+
+		echo "kill wget"
+		echo "kill -9 "$pid
+		kill -9 $pid
+
+		break
+	fi
+
+	sleep 5
+
+done

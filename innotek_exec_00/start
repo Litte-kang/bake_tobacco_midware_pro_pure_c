@@ -7,6 +7,11 @@ date >> ./data/error.log
 chmod 777 ./bin/Bake_Tobacco_Monitor
 chmod 777 ./bin/download_fw
 chmod 777 ./bin/version_parse
+chmod 777 ./bin/check_network_0
+chmod 777 ./bin/check_network_1
+chmod 777 ./bin/watchmen
+chmod 777 ./bin/kill_processes
+chmod 777 ./bin/restart
 
 new_ver=`./bin/version_parse ./fws/fw_100/100.version`
 res0=$?
@@ -57,4 +62,4 @@ echo "start monitor"
 
 sleep 5
 
-/bin/sh ./bin/watchmen Bake_Tobacco_Monitor &
+./bin/watchmen Bake_Tobacco_Monitor &
